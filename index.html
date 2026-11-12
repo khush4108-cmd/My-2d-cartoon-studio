@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My 2D Cartoon Studio</title>
+<link rel="stylesheet" href="css/style.css?v=3">
+<script>
+  // Shows any problem on screen, so nothing fails silently.
+  window.showError = function (msg) {
+    var e = document.getElementById('errors');
+    if (!e) { e = document.createElement('div'); e.id = 'errors'; document.body.insertBefore(e, document.body.firstChild); }
+    e.className = 'errbox'; e.textContent = 'Problem: ' + msg;
+  };
+  window.addEventListener('error', function (ev) {
+    window.showError((ev.message || 'unknown error') + (ev.filename ? ' (' + ev.filename.split('/').pop() + ':' + ev.lineno + ')' : ''));
+  });
+</script>
+</head>
+<body>
+<main>
+  <h1>My 2D Cartoon Studio</h1>
+  <p class="sub">Type a story, press one button, and watch your cartoon.</p>
+  <label for="story">Your story</label>
+  <textarea id="story">Mia and Leo walked into the park. "Look, a giant duck!" said Mia. "Oh no, it is chasing us!" shouted Leo. They ran past the pond and Leo fell into the mud. "Ha ha, you look funny!" laughed Mia. At night they went home to the house. "That was the best day ever," said Leo.</textarea>
+  <div class="row">
+    <button id="make" class="go">Make my cartoon</button>
+    <label class="ai"><input type="checkbox" disabled> AI writer (coming in Batch 5)</label>
+  </div>
+  <div id="errors" role="alert"></div>
+  <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
+  <div class="row"><button id="replay" class="go">Play again</button></div>
+  <section id="result"></section>
+  <p class="note">Test page: <a href="export-test.html">Video + sound export test</a></p>
+</main>
+<script src="js/script-format.js?v=3"></script>
+<script src="js/writer-free.js?v=3"></script>
+<script src="js/characters.js?v=3"></script>
+<script src="js/acting.js?v=3"></script>
+<script src="js/scenes.js?v=3"></script>
+<script src="js/renderer.js?v=3"></script>
+<script src="js/main.js?v=3"></script>
+</body>
+</html>
