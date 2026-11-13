@@ -10,7 +10,15 @@ window.Renderer = (function () {
     const looks = {}; script.characters.forEach(c => looks[c.name] = Characters.look(c.name));
     let t = 0;
     const scenes = script.scenes.map(sc => {
-      const names = [...new Set(sc.beats.map(b => b.who).filter(w => w !== 'Narrator'))];
+      // A character appears in a scene if they SPEAK in it or are MENTIONED in
+      // it. Only speakers used to count, so a story told in plain prose with no
+      // quotation marks produced an empty stage with nothing but a background.
+      const names = [];
+      sc.beats.forEach(b => {
+        [b.who].concat(b.mentioned || []).forEach(w => {
+          if (w && w !== 'Narrator' && !names.includes(w)) names.push(w);
+        });
+      });
       const beats = sc.beats.map(b => { const o = Object.assign({}, b, { start: t, dur: dur(b) }); t += o.dur; return o; });
       return { bg: sc.bg, names, beats, start: beats[0].start, end: t };
     });
