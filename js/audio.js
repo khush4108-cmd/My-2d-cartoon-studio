@@ -331,7 +331,10 @@ window.CartoonAudio = (function () {
         speechTimers.push(setTimeout(function () { speak(b); }, delay));
       });
     }
-    return { sfx: sfxCount, scenes: tl.scenes.length, total: tl.total };
+    // `base` is the time on the AUDIO clock that corresponds to picture time 0.
+    // A recorder can drive its video frames from (ctx.currentTime - base) so the
+    // picture and the sound share one clock instead of two that slowly disagree.
+    return { sfx: sfxCount, scenes: tl.scenes.length, total: tl.total, base: base };
   }
 
   function setVolume(v) { volume = clamp(Number(v) || 0, 0, 1); applyMaster(); return volume; }
