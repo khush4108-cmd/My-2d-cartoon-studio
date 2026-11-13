@@ -349,5 +349,40 @@ window.CartoonAudio = (function () {
   }
   function supported() { return { webAudio: !!AC, speech: !!(TTS && Utt) }; }
 
-  return { unlock, start, stop, setVolume, setMuted, state, supported };
+  // --- Hooks used only by export-test.html -------------------------------
+  // These are inert during normal playback: nothing calls them unless the
+  // test page does, so the cartoon's sound behaviour is unchanged.
+  let tapDest = null;
+  function context() { return ctx; }
+  // Fan the master bus out to a MediaStream so a recording can capture it.
+  // Note: speechSynthesis does NOT travel through Web Audio, so spoken voices
+  // cannot be captured this way - only the effects and the ambience can.
+  function tap() {
+    if (!ctx || !master || !ctx.createMediaStreamDestination) return null;
+    if (!tapDest) { try { tapDest = ctx.createMediaStreamDestination(); master.connect(tapDest); } catch (e) { tapDest = null; } }
+    return tapDest;
+  }
+  function effects() { return Object.keys(RECIPES); }
+  function beds() { return Object.keys(BEDS); }
+  function preview(name) {                                // play one effect now
+    if (!ctx || !RECIPES[name]) return false;
+    if (ctx.state === 'suspended') { const p = ctx.resume(); if (p && p.catch) p.catch(function () {}); }
+    try { RECIPES[name](ctx.currentTime + 0.02, 1); } catch (e) { lastError = 'preview failed: ' + e.message; return false; }
+    return true;
+  }
+  function previewBed(bg, seconds) {                      // play one ambience bed
+    if (!ctx) return false;
+    const dur = Math.max(1.5, Number(seconds) || 4);
+    try { scheduleScene(BEDS[bg] ? bg : 'park', ctx.currentTime + 0.02, dur, 13); }
+    catch (e) { lastError = 'previewBed failed: ' + e.message; return false; }
+    return true;
+  }
+  function say(text) {                                    // speak one test line
+    if (!TTS || !Utt) return false;
+    speak({ say: String(text || ''), who: 'Narrator', dur: 3 });
+    return true;
+  }
+
+  return { unlock, start, stop, setVolume, setMuted, state, supported,
+           context, tap, effects, beds, preview, previewBed, say };
 })();
