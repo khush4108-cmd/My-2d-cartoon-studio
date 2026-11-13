@@ -48,11 +48,11 @@ window.Characters = (function () {
     tiger:     { ears: 'round',  tail: 'thin',    fur: '#e0762b', nose: '#2b2b33', size: 1.25, upright: false, legs: 4, stripes: true },
     sheep:     { ears: 'floppy', tail: 'stub',    fur: '#f2ede2', nose: '#4a4453', size: 0.95, upright: false, legs: 4, wool: true },
     duck:      { ears: 'none',   tail: 'feather', fur: '#f2c94c', nose: '#ff9d2e', size: 0.75, upright: true,  legs: 2, beak: true },
-    bird:      { ears: 'none',   tail: 'feather', fur: '#3d7bd6', nose: '#ff9d2e', size: 0.55, upright: true,  legs: 2, beak: true, wings: true },
+    bird:      { ears: 'none',   tail: 'feather', fur: '#3d7bd6', nose: '#ff9d2e', size: 0.34, upright: true,  legs: 2, beak: true, wings: true },
     owl:       { ears: 'none',   tail: 'feather', fur: '#a8763e', nose: '#ff9d2e', size: 0.65, upright: true,  legs: 2, beak: true, wings: true },
     penguin:   { ears: 'none',   tail: 'feather', fur: '#2b2b33', nose: '#ff9d2e', size: 0.70, upright: true,  legs: 2, beak: true, wings: true, belly: '#ffffff' },
-    butterfly: { ears: 'none',   tail: 'none',    fur: '#ffd84a', nose: '#2b2b33', size: 0.45, flying: true, butterfly: true },
-    bee:       { ears: 'none',   tail: 'none',    fur: '#ffd84a', nose: '#2b2b33', size: 0.35, flying: true, wings: true, stripes: true },
+    butterfly: { ears: 'none',   tail: 'none',    fur: '#ffd84a', nose: '#2b2b33', size: 0.30, flying: true, butterfly: true },
+    bee:       { ears: 'none',   tail: 'none',    fur: '#ffd84a', nose: '#2b2b33', size: 0.22, flying: true, wings: true, stripes: true },
     dragon:    { ears: 'pointy', tail: 'thin',    fur: '#6fbf5e', nose: '#3f8a35', size: 1.35, upright: true,  legs: 4, wings: true, horn: true },
     unicorn:   { ears: 'pointy', tail: 'bushy',   fur: '#ffffff', nose: '#ff9ec4', size: 1.30, upright: false, legs: 4, horn: true, mane: true },
     horse:     { ears: 'pointy', tail: 'bushy',   fur: '#8a5a2b', nose: '#2b2b33', size: 1.35, upright: false, legs: 4, mane: true },
@@ -73,7 +73,7 @@ window.Characters = (function () {
 
   // ---------- inanimate objects ----------
   const OBJECTS = {
-    carrot:   { shape: 'carrot',   colour: '#ff8c1a', leaf: '#4fa83d', size: 1.05 },
+    carrot:   { shape: 'carrot',   colour: '#ff8c1a', leaf: '#4fa83d', size: 0.85 },
     cake:     { shape: 'round',    colour: '#ff9ec4', leaf: '#ffffff', size: 0.70 },
     ball:     { shape: 'round',    colour: '#e0483d', leaf: '#ffffff', size: 0.55 },
     apple:    { shape: 'round',    colour: '#e0483d', leaf: '#4fa83d', size: 0.45 },
@@ -98,6 +98,43 @@ window.Characters = (function () {
     sun:      { shape: 'star',     colour: '#ffd84a', leaf: '#ff8c1a', size: 0.90 },
     moon:     { shape: 'round',    colour: '#f7ead0', leaf: '#c9ced6', size: 0.80 }
   };
+
+  // ---------- believable scale ------------------------------------------
+  // Every drawing has its own intrinsic height: a rabbit's ears reach far above
+  // its head, a butterfly's wings span wider than its body is tall, a carrot is
+  // tall and thin. Multiplying those by one `size` number made a "giant" carrot
+  // 665px tall on a 720px screen - 92% of the frame, twice the height of the
+  // characters standing next to it.
+  //
+  // So `size` now means PIXELS ON SCREEN. These heights were measured by drawing
+  // every species and object at size 1.0 and reading the bounding box
+  // (node /tmp/calibrate.js). A human is 354px tall for reference.
+  const H_ANIMAL = { rabbit: 379, squirrel: 270, cat: 211, dog: 204, fox: 211, wolf: 211, bear: 270,
+    mouse: 204, pig: 211, frog: 270, deer: 223, elephant: 204, monkey: 270, lion: 215, tiger: 204,
+    sheep: 204, duck: 270, bird: 270, owl: 270, penguin: 270, butterfly: 228, bee: 207, dragon: 309,
+    unicorn: 237, horse: 215, turtle: 204, snail: 204, fish: 217 };
+  const H_OBJECT = { carrot: 337, cake: 193, ball: 193, apple: 193, orange: 193, balloon: 288,
+    kite: 266, star: 240, flower: 201, cookie: 193, egg: 149, gift: 195, present: 195, box: 195,
+    book: 195, boat: 211, rocket: 296, key: 193, ring: 193, candy: 193, cup: 195, hat: 195,
+    sun: 240, moon: 193 };
+  // how tall a "normal" one of these should stand, in pixels
+  const REF = { animal: 400, object: 200 };
+  // and the band nothing may leave: big enough to act with, small enough that a
+  // prop never dwarfs the cast or fills the frame
+  const BAND = { animal: [85, 470], object: [45, 275] };
+  const HUMAN_PX = 354;
+
+  // A story adjective moves the size only PART of the way. "A little rabbit"
+  // still has to be big enough to emote, and "a giant carrot" still has to be
+  // shorter than the rabbit standing beside it.
+  function sizeFor(kind, key, base, story) {
+    const h = (kind === 'animal' ? H_ANIMAL : H_OBJECT)[key] || 240;
+    const st = Math.max(0.5, Math.min(1.65, story || 1));
+    const mod = 1 + (st - 1) * 0.55;
+    const px = REF[kind] * (base || 1) * mod;
+    const band = BAND[kind];
+    return Math.max(band[0], Math.min(band[1], px)) / h;
+  }
 
   // ---------- colour helpers ----------
   function rgb(hex) {
@@ -137,7 +174,8 @@ window.Characters = (function () {
       const O = OBJECTS[key] || OBJECTS.ball;
       const base = tint || O.colour;
       return Object.assign({}, human, {
-        kind: 'object', species: key, obj: O, size: O.size * (hi.size || 1),
+        kind: 'object', species: key, obj: O, px: 0,
+        size: sizeFor('object', key, O.size, hi.size),
         sparkle: !!hi.magic, colour: base, accent: O.leaf, fur: base,
         top: base, hair: shade(base, -0.3), skin: shade(base, 0.25), pants: shade(base, -0.2),
         eye: EYES[pick(4, 18)]
@@ -148,7 +186,8 @@ window.Characters = (function () {
       const S = SPECIES[key] || SPECIES.rabbit;
       const fur = tint || S.fur;
       return Object.assign({}, human, {
-        kind: 'animal', species: key, sp: S, size: S.size * (hi.size || 1),
+        kind: 'animal', species: key, sp: S,
+        size: sizeFor('animal', key, S.size, hi.size),
         fur: fur, nose: S.nose, belly: S.belly || shade(fur, 0.45),
         top: fur, hair: shade(fur, -0.3), skin: fur, pants: shade(fur, -0.2),
         shoe: shade(fur, -0.35), eye: EYES[pick(4, 18)],
@@ -647,5 +686,6 @@ window.Characters = (function () {
     drawHuman(c, L, P, x, y, s, flip);
   }
 
-  return { look, draw, drawHuman, drawAnimal, drawObject, SPECIES, ALIAS, OBJECTS, COLOURS, shade };
+  return { look, draw, drawHuman, drawAnimal, drawObject, SPECIES, ALIAS, OBJECTS, COLOURS, shade,
+    H_ANIMAL, H_OBJECT, REF, BAND, HUMAN_PX, sizeFor };
 })();

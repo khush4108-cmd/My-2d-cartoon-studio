@@ -123,6 +123,45 @@ window.WriterFree = (function () {
     if (/\b(hello|hi|wave)\b/i.test(t)) return 'wave';
     return 'none';
   }
+  // Split a story into sentences - but never in the middle of a quotation.
+  // The old one-line split cut
+  //     "Wow! This is amazing!" said Coco.
+  // into three pieces: "Wow! , This is amazing!" and said Coco.
+  // The first two had no closing quote, so they were read as narration; the tag
+  // then had no quote left to attach to and Coco never became the speaker.
+  // Nobody listened to her and nobody reacted.
+  function splitSentences(text) {
+    const src = String(text).replace(/\s+/g, ' ');
+    const out = [];
+    let open = false, start = 0;
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (ch === '\u201c') { open = true; continue; }
+      if (ch === '\u201d') open = false;
+      else if (ch === '"') { open = !open; if (open) continue; }
+      if (open) continue;                                      // inside a quote: never a boundary
+      if (!(/[.!?]/.test(ch) || ch === '\u201d' || ch === '"')) continue;
+      let k = i + 1;
+      while (k < src.length && /["\u201d]/.test(src[k])) k++;   // swallow the closing quote(s)
+      if (k >= src.length || !/\s/.test(src[k])) continue;      // no space after: not a split
+      out.push(src.slice(start, k).trim());
+      start = k;
+      while (start < src.length && /\s/.test(src[start])) start++;
+      i = start - 1;
+    }
+    const tail = src.slice(start).trim();
+    if (tail) out.push(tail);
+    return out.length ? out : (src.trim() ? [src.trim()] : []);
+  }
+
+  // A stable per-name choice, so two bystanders sharing a shot do not both land
+  // on the same reaction just because their names happen to be the same length.
+  function pickOf(n) {
+    let h = 0;
+    for (const ch of String(n)) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
+    return h % 3;
+  }
+
   function placeOf(t) {
     for (const k in PLACES) if (PLACES[k].test(t)) return k;
     return null;
@@ -264,7 +303,7 @@ window.WriterFree = (function () {
       const before = text.slice(0, m.index).replace(/\s+$/, '');
       const after = text.slice(m.index + m[0].length).replace(/^\s+/, '');
       out.push({
-        w: m[0], lower: m[0].toLowerCase(),
+        w: m[0], lower: m[0].toLowerCase(), at: m.index,
         caps: /^[A-Z][a-z]/.test(m[0]),
         allcaps: m[0].length > 1 && /^[A-Z]+$/.test(m[0]),
         initial: before === '' || /[.!?:"\u201d]$/.test(before),
@@ -347,7 +386,7 @@ window.WriterFree = (function () {
       : surface[L].charAt(0).toUpperCase() + surface[L].slice(1)));
   }
 
-  let CAST = [], CAST_SET = new Set(), HINTS = {}, ENTITIES = [];
+  let CAST = [], CAST_SET = new Set(), HINTS = {}, ENTITIES = [], PROPS = new Set();
   function canon(w) {                                   // map any spelling to the cast form
     const s = String(w || '').trim();
     const hit = CAST.find(c => c.toLowerCase() === s.toLowerCase());
@@ -373,11 +412,185 @@ window.WriterFree = (function () {
     });
     return out;
   }
-  function beat(who, say, mentioned) {
-    return { who, say, emotion: emotionOf(say), action: actionOf(say), sfx: sfxOf(say), mentioned: mentioned || [] };
+  // ---------- who does what: per-character direction -----------------------
+  // A beat used to carry ONE emotion and ONE action and the renderer gave them
+  // to everybody on stage, so "Max the brown squirrel ran over" made the
+  // rabbit, the butterfly, the bird AND THE CARROT all run, and Coco's
+  // "Look at this carrot!" made all five of them throw their arms up together.
+  // direct() works out who actually performs the action, who is only watching,
+  // and who everybody should be looking at.
+  //
+  // The beat's own `emotion`/`action` fields are left exactly as they were:
+  // they still describe the LINE, and audio.js and the script view read them.
+  // `dir` is purely additive.
+  const ACTIONS = [
+    [/\b(jumps?|jumped|jumping|bounces?|bounced|bouncing|hops?|hopped|hopping|leaps?|leapt|leaping)\b/i, 'jump'],
+    [/\b(runs?|ran|running|race[ds]?|racing|dash(?:es|ed|ing)|sprint(?:s|ed|ing)|chas(?:e|es|ed|ing)|rush(?:es|ed|ing)|hurri(?:es|ed|ying)|fled)\b/i, 'run'],
+    [/\b(walks?|walked|walking|stroll(?:s|ed|ing)|march(?:es|ed|ing)|wander(?:s|ed|ing)|crawl(?:s|ed|ing)|crept|creeps?|creeping|tiptoe[ds]?|went|goes|going|headed|left)\b/i, 'walk'],
+    [/\b(waves?|waved|waving)\b/i, 'wave'],
+    [/\b(danc(?:e|es|ed|ing)|twirl(?:s|ed|ing)|spin(?:s|ning)|spun)\b/i, 'dance'],
+    [/\b(fli(?:es|ed)|fly|flew|flies|flying|soar(?:s|ed|ing)|flutter(?:s|ed|ing))\b/i, 'fly'],
+    [/\b(swims?|swam|swimming|div(?:e|es|ed|ing)|dove)\b/i, 'swim'],
+    [/\b(sleeps?|sleeping|slept|naps?|napped|napping|doz(?:e|es|ed|ing)|yawn(?:s|ed|ing)|rest(?:s|ed|ing))\b/i, 'sleep'],
+    [/\b(sits?|sitting|sat|crouch(?:es|ed|ing)|hid(?:e|es|ing)|hid|huddle[ds]?)\b/i, 'sit'],
+    [/\b(eats?|eating|ate|munch(?:es|ed|ing)|nibbl(?:e|es|ed|ing)|bit(?:e|es|ing)|bit|taste[ds]?)\b/i, 'eat'],
+    [/\b(cri(?:es|ed)|crying|cry|weep(?:s|ing)?|wept|sob(?:s|bed|bing)|tears)\b/i, 'cry'],
+    [/\b(laugh(?:s|ed|ing)?|giggl(?:e|es|ed|ing)|chuckl(?:e|es|ed|ing)|ha ?ha)\b/i, 'laugh']
+  ];
+  // "Coco looked at Max", "Max watched her", "they stared at the carrot"
+  const LOOK = /\b(look(?:s|ed|ing)?|watch(?:es|ed|ing)?|see(?:s|ing)?|saw|star(?:e|es|ed|ing)|glanc(?:e|es|ed|ing)|turn(?:s|ed|ing)?|peek(?:s|ed|ing)?|notic(?:e|es|ed|ing)|spotted|listen(?:s|ed|ing)?)\b/i;
+  const GLOW = /\b(glow(?:s|ed|ing)?|shin(?:e|es|ing)|shone|sparkl(?:e|es|ed|ing)|twinkl(?:e|es|ed|ing)|lit up|flash(?:es|ed|ing)|magic|magical)\b/i;
+  const RISE = /\b(float(?:s|ed|ing)?|ris(?:e|es|ing)|rose|levitat(?:e|es|ed|ing)|hover(?:s|ed|ing)|lift(?:s|ed|ing)|drift(?:s|ed|ing))\b/i;
+  // "Both friends jumped", "they all ran", "together they sang"
+  const TOGETHER = /\b(both|together|everyone|everybody|they all|all of them|all them|the two)\b/i;
+  // a plural subject standing in for names already established: "They ran home."
+  const PLURAL = /\b(they|them|their|both|all|everyone|everybody|friends)\b/i;
+  // "Max watched her" - the object is a pronoun, so the target has to be
+  // whoever was last on stage
+  const PRONOUN = /\b(him|her|them|it|his|hers|their|there)\b/i;
+  const MIRROR = { excited: 'surprised', scared: 'surprised', angry: 'surprised', surprised: 'surprised',
+    happy: 'happy', sad: 'sad', confused: 'confused', neutral: 'neutral' };
+
+  // how many tokens start before a character offset
+  function ordOf(toks, charAt) {
+    let n = 0;
+    for (let i = 0; i < toks.length; i++) { if (toks[i].at < charAt) n = i + 1; else break; }
+    return n;
+  }
+
+  // `recent` is who was already on stage, so that "Both friends jumped" and
+  // "Max watched her" know who they mean even though no name is in the sentence.
+  function direct(src, say, who, present, recent) {
+    const text = String(src || say || '');
+    const toks = tokens(text);
+    const plural = TOGETHER.test(text) || PLURAL.test(text);
+
+    // the participants: named in this sentence, plus whoever is already on
+    // stage when the sentence speaks about "they" or "both"
+    const cast = (present || []).slice();
+    if (plural) (recent || []).forEach(n => { if (cast.indexOf(n) < 0) cast.push(n); });
+    const dir = {};
+    cast.forEach(n => { dir[n] = { action: 'none', emotion: null, look: null, listen: false, move: null }; });
+    const beatDir = { focus: null, float: false };
+    if (!cast.length) return { dir, beatDir };
+
+    const ord = {};
+    toks.forEach((t, i) => {
+      const hit = cast.find(n => n.toLowerCase() === t.lower);
+      if (hit && ord[hit] === undefined) ord[hit] = i;
+    });
+    const named = k => cast.filter(n => ord[n] !== undefined && (k === null || ord[n] < k));
+    const before = k => named(k).sort((a, b) => ord[a] - ord[b]);
+    const after = k => cast.filter(n => ord[n] !== undefined && ord[n] > k).sort((a, b) => ord[a] - ord[b]);
+
+    // ---- 1. the action, and WHOSE it is ---------------------------------
+    let action = 'none', vAt = -1, vOrd = -1;
+    ACTIONS.forEach(([re, a]) => {
+      const m = re.exec(text);
+      if (!m) return;
+      if (vAt < 0 || m.index < vAt) { vAt = m.index; vOrd = ordOf(toks, m.index); action = a; }
+    });
+    let owners = [];
+    if (vAt >= 0) {
+      const lead = before(vOrd);
+      if (TOGETHER.test(text) || (lead.length === 0 && plural)) {
+        owners = cast.slice();                       // "both friends jumped", "they ran home"
+      } else if (lead.length >= 2 && /\band\b|,/.test(text.slice(0, vAt))) {
+        owners = lead;                               // "Mia and Leo walked" - the two of them
+      } else if (lead.length) {
+        owners = [lead[lead.length - 1]];            // "Coco ran" - Coco alone, never Max
+      } else if (who !== 'Narrator' && cast.indexOf(who) >= 0) {
+        owners = [who];
+      } else {
+        owners = after(vOrd).slice(0, 1);
+      }
+      owners = owners.filter(n => !(HINTS[n] && HINTS[n].kind === 'object'));   // props do not act
+    }
+
+    // ---- 2. who is looking at whom --------------------------------------
+    let lookSubj = null, lookTgt = null;
+    const lm = LOOK.exec(text);
+    if (lm) {
+      const k = ordOf(toks, lm.index);
+      const lead = before(k), trail = after(k);
+      lookSubj = lead.length ? lead[lead.length - 1]
+        : (who !== 'Narrator' && cast.indexOf(who) >= 0 ? who : null);
+      if (trail.length) lookTgt = trail[0];
+      else {
+        // "Max watched her." - the pronoun points at whoever else is on stage
+        const rest = text.slice(lm.index + lm[0].length);
+        if (PRONOUN.test(rest.split(/[.!?]/)[0])) {
+          const pool = (recent || []).concat(cast).filter(n => n !== lookSubj);
+          lookTgt = pool.length ? pool[pool.length - 1] : null;
+        }
+      }
+      if (lookTgt === lookSubj) lookTgt = null;
+    }
+
+    // ---- 3. a glowing or floating prop is the focus of the whole shot ----
+    const things = cast.filter(n => HINTS[n] && HINTS[n].kind === 'object');
+    if (things.length && (GLOW.test(text) || RISE.test(text))) {
+      beatDir.focus = things.find(n => ord[n] !== undefined) || things[0];
+      beatDir.float = RISE.test(text);
+    }
+
+    const lineEmotion = emotionOf(String(say || text));
+
+    const ORDER = Object.keys(dir);
+    cast.forEach(n => {
+      const d = dir[n];
+      if (HINTS[n] && HINTS[n].kind === 'object') { d.emotion = 'neutral'; return; }   // props never act
+      // rank = where this character sits among the ones who are NOT the speaker.
+      // Two bystanders in the same shot can hash to the same reaction, so the
+      // rank is mixed in to guarantee neighbours never match.
+      const rank = ORDER.filter(x => x !== who).indexOf(n);
+      const speaks = n === who;
+      if (owners.indexOf(n) >= 0) d.action = action;
+      // covering the ground towards somebody reads as an entrance, not a treadmill
+      if (d.action === 'run' || d.action === 'walk') {
+        const tgt = (lookTgt && lookTgt !== n) ? lookTgt : (beatDir.focus && beatDir.focus !== n ? beatDir.focus : null);
+        if (tgt) d.move = tgt;
+      }
+      // WHERE THEY LOOK is decided separately from HOW THEY FEEL, because a
+      // speaker looks at things too: Coco says "Look at this carrot!" while
+      // turning her head towards it.
+      if (lookSubj === n && lookTgt) d.look = lookTgt;
+      else if (beatDir.focus && beatDir.focus !== n) d.look = beatDir.focus;
+      else if (who !== 'Narrator' && who !== n) { d.look = who; d.listen = true; }
+
+      if (speaks || owners.indexOf(n) >= 0) d.emotion = lineEmotion;
+      else if (d.look && d.look !== who) d.emotion = /[!?]/.test(text) ? 'surprised' : 'confused';
+      else if (d.listen) {
+        // an INDIVIDUAL reaction, not a chorus: the same line does not make
+        // every bystander feel the same thing
+        const pick = (pickOf(n) + (rank < 0 ? 0 : rank)) % 3;
+        const opts = [MIRROR[lineEmotion] || 'neutral', 'neutral', 'confused'];
+        let feel = opts[pick];
+        // never hand a bystander the speaker's own expression: that is what made
+        // the whole cast react identically before
+        if (feel === lineEmotion) for (const alt of opts) if (alt !== lineEmotion) { feel = alt; break; }
+        d.emotion = feel;
+      } else d.emotion = 'neutral';
+      if (!d.emotion) d.emotion = lineEmotion;
+    });
+    return { dir, beatDir };
+  }
+
+  // `recent` is who was already on stage, so "Both friends jumped" and
+  // "Max watched her" know who they are talking about.
+  let ON_STAGE = [];
+  function beat(who, say, mentioned, src) {
+    const m = (mentioned || []).slice();
+    const d = direct(src || say, say, who, m, ON_STAGE);
+    const b = { who, say, emotion: emotionOf(say), action: actionOf(say), sfx: sfxOf(say), mentioned: m,
+      dir: d.dir, focus: d.beatDir.focus, float: d.beatDir.float };
+    m.forEach(n => { if (ON_STAGE.indexOf(n) < 0) ON_STAGE.push(n); });
+    if (ON_STAGE.length > 6) ON_STAGE = ON_STAGE.slice(ON_STAGE.length - 6);
+    return b;
   }
 
   function write(text) {
+    ON_STAGE = [];
     CAST = detectCast(text);                    // who is in this story, decided once
     CAST_SET = new Set(CAST.map(c => c.toLowerCase()));
 
@@ -396,6 +609,12 @@ window.WriterFree = (function () {
     });
     ENTITIES = findEntities(allToks, CAST_SET, claimed);
     ENTITIES.forEach(e => { HINTS[e.name] = e.hint; });
+    // A PROP is something the story mentions in passing - "a tiny yellow
+    // butterfly flew past". A CAST member is somebody the story names. The
+    // renderer lets props leave the stage once the story has moved on, but a
+    // character stays: Max must not walk off just because one sentence happens
+    // not to mention him.
+    PROPS = new Set(ENTITIES.map(e => e.name));
 
     const scenes = [];
     let cur = null;
@@ -411,10 +630,10 @@ window.WriterFree = (function () {
         m = l.match(/^([^:]{1,20}):\s*(.+)$/);
         const said = namesIn(l).concat(entitiesIn(l));
         const raw = m ? m[1].trim() : 'Narrator';
-        cur.beats.push(beat(raw === 'Narrator' ? 'Narrator' : canon(raw), m ? m[2].trim() : l, said));
+        cur.beats.push(beat(raw === 'Narrator' ? 'Narrator' : canon(raw), m ? m[2].trim() : l, said, l));
       }
     } else {                                        // normal story sentences
-      const sentences = text.replace(/\s+/g, ' ').split(/(?<=[.!?\u201d"])\s+/);
+      const sentences = splitSentences(text);
       let last = null, prev = null, lastQuote = null;
       for (const s of sentences) {
         const p = placeOf(s.replace(/["\u201c][^"\u201d]*["\u201d]/g, ''));
@@ -428,7 +647,16 @@ window.WriterFree = (function () {
         const tagVerbFirst = new RegExp('^(' + ANY_SPEECH + ')\\b', 'i').test(S);
         const tagNameFirst = new RegExp("^[A-Za-z][A-Za-z']*\\s+(" + PURE_SPEECH + ')\\b', 'i').test(S);
         if (lastQuote && (tagVerbFirst || tagNameFirst) && !/["\u201c]/.test(s)) {
-          const nm = namesIn(s)[0]; if (nm) { lastQuote.who = nm; prev = last; last = nm; }
+          const nm = namesIn(s)[0];
+          if (nm) {
+            lastQuote.who = nm; prev = last; last = nm;
+            // Sentences are split AFTER a closing quote, so `"Look!" said Coco`
+            // arrives as two pieces and the speaker was not yet known when the
+            // beat was built. Add them now and work out the direction again.
+            if (lastQuote.mentioned.indexOf(nm) < 0) lastQuote.mentioned.push(nm);
+            const d = direct(lastQuote.say, lastQuote.say, nm, lastQuote.mentioned, ON_STAGE);
+            lastQuote.dir = d.dir; lastQuote.focus = d.beatDir.focus; lastQuote.float = d.beatDir.float;
+          }
           lastQuote = null; continue;
         }
         const q = s.match(/["\u201c]([^"\u201d]+)["\u201d]/);
@@ -438,10 +666,10 @@ window.WriterFree = (function () {
         if (q) {
           let who = names[0] || (prev && prev !== last ? prev : last) || 'Narrator';
           prev = last; last = who;
-          lastQuote = beat(who, q[1].trim(), present); cur.beats.push(lastQuote);
+          lastQuote = beat(who, q[1].trim(), present, s); cur.beats.push(lastQuote);
         } else {
           if (names.length) { prev = last; last = names[0]; }
-          cur.beats.push(beat('Narrator', s.trim(), present)); lastQuote = null;
+          cur.beats.push(beat('Narrator', s.trim(), present, s)); lastQuote = null;
         }
       }
     }
@@ -455,7 +683,7 @@ window.WriterFree = (function () {
     }));
     return {
       title: text.trim().split(/\s+/).slice(0, 5).join(' '),
-      characters: cast.map(n => ({ name: n, hint: HINTS[n] || null })),
+      characters: cast.map(n => ({ name: n, hint: HINTS[n] || null, prop: PROPS.has(n) || undefined })),
       scenes
     };
   }
