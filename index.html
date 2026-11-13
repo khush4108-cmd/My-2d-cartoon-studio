@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>My 2D Cartoon Studio</title>
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 <script>
   // Shows any problem on screen, so nothing fails silently.
   window.showError = function (msg) {
@@ -27,18 +27,25 @@
     <button id="make" class="go">Make my cartoon</button>
     <label class="ai"><input type="checkbox" disabled> AI writer (coming in Batch 5)</label>
   </div>
+  <div class="row sound">
+    <button id="mute" type="button" aria-pressed="false">🔊 Sound on</button>
+    <label for="volume">Volume</label>
+    <input id="volume" type="range" min="0" max="100" step="5" value="90">
+    <span id="soundnote" class="ai"></span>
+  </div>
   <div id="errors" role="alert"></div>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
   <div class="row"><button id="replay" class="go">Play again</button></div>
   <section id="result"></section>
   <p class="note">Test page: <a href="export-test.html">Video + sound export test</a></p>
 </main>
-<script src="js/script-format.js?v=4"></script>
-<script src="js/writer-free.js?v=4"></script>
-<script src="js/characters.js?v=4"></script>
-<script src="js/acting.js?v=4"></script>
-<script src="js/scenes.js?v=4"></script>
-<script src="js/renderer.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/script-format.js?v=5"></script>
+<script src="js/writer-free.js?v=5"></script>
+<script src="js/characters.js?v=5"></script>
+<script src="js/acting.js?v=5"></script>
+<script src="js/scenes.js?v=5"></script>
+<script src="js/renderer.js?v=5"></script>
+<script src="js/audio.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 </body>
 </html>

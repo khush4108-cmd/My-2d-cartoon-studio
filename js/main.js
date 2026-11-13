@@ -8,6 +8,30 @@
   const missing = () => Object.keys(NEED).filter(k => !window[k]).map(k => NEED[k]);
   let current = null;
 
+  // --- Sound -------------------------------------------------------------
+  // Sound is OPTIONAL. If js/audio.js is missing, or the browser refuses audio,
+  // the picture must still play - so nothing here is allowed to throw.
+  function soundNote() {
+    const n = $('soundnote'); if (!n) return;
+    if (!window.CartoonAudio) { n.textContent = 'Sound is unavailable: js/audio.js did not load.'; return; }
+    const s = CartoonAudio.state();
+    if (!s.webAudio) n.textContent = 'This browser cannot make sound effects.';
+    else if (!s.speech) n.textContent = 'Effects and ambience on. This browser has no built-in voice for the lines.';
+    else if (s.muted) n.textContent = 'Sound is off.';
+    else n.textContent = 'Sound ready. If it stays silent, check the iPad volume and mute switch.';
+  }
+  function playSound(script) {
+    if (!window.CartoonAudio) return;
+    try {
+      CartoonAudio.stop();
+      // unlock() has to run INSIDE the button click, otherwise iOS Safari leaves
+      // the AudioContext suspended and you hear nothing at all.
+      CartoonAudio.unlock();
+      CartoonAudio.start(script, performance.now());
+    } catch (e) { /* a sound problem must never stop the picture */ }
+    soundNote();
+  }
+
   function showScript(script) {
     let html = '<p><b>' + esc(script.title) + '…</b> Characters: ' +
       (script.characters.map(c => esc(c.name)).join(', ') || 'only a narrator') + '</p>';
@@ -36,13 +60,30 @@
       if (problems.length) return fail(problems.join(' '));
       current = script;
       showScript(script);
+      playSound(script);                    // sound first, then the picture
       Renderer.play(script, $('stage'));
     } catch (e) { fail('Something went wrong: ' + e.message); }
   }
 
   const make$ = $('make'); if (make$) make$.addEventListener('click', make);
   const rep = $('replay');
-  if (rep) rep.addEventListener('click', () => { try { if (current) Renderer.play(current, $('stage')); } catch (e) { fail(e.message); } });
+  if (rep) rep.addEventListener('click', () => { try { if (current) { playSound(current); Renderer.play(current, $('stage')); } } catch (e) { fail(e.message); } });
+
+  // --- sound controls: mute button + volume slider ------------------------
+  const muteBtn = $('mute'), volSlider = $('volume');
+  if (muteBtn) muteBtn.addEventListener('click', () => {
+    if (!window.CartoonAudio) return;
+    const nowMuted = CartoonAudio.setMuted(!CartoonAudio.state().muted);
+    muteBtn.setAttribute('aria-pressed', nowMuted ? 'true' : 'false');
+    muteBtn.textContent = nowMuted ? '🔇 Sound off' : '🔊 Sound on';
+    soundNote();
+  });
+  if (volSlider) volSlider.addEventListener('input', () => {
+    if (window.CartoonAudio) CartoonAudio.setVolume(Number(volSlider.value) / 100);
+  });
+  // honour the slider's starting position even before the first click
+  if (window.CartoonAudio && volSlider) CartoonAudio.setVolume(Number(volSlider.value) / 100);
+  soundNote();
 
   try {                       // start-up check + a preview picture on the stage
     const m = missing();
