@@ -78,7 +78,14 @@ window.WriterFree = (function () {
     'la la na na pooh psst shh whee yippee ouch hmmph ' +
     'wow really actually maybe alas oops hey um well hmm wowzers indeed certainly sure ' +
     'chasing running walking jumping singing dancing ' +
-    'giant huge enormous tiny little big small long short tall wide narrow round square'
+    'giant huge enormous tiny little big small long short tall wide narrow round square ' +
+    // Every creature and object the renderer knows how to draw, plus the colour
+    // words that can describe them. A lowercase one of these is an ordinary word
+    // and never a character: "a giant magic carrot" must not put a person named
+    // Carrot on the stage. (Missing just `carrot` here is what caused that bug.)
+    'bee dragon unicorn hare kitties puppies butterflies rabbits squirrels bears cats dogs frogs bees owls mice ' +
+    'lions tigers horses dragons unicorns turtles fishes pigs elephants monkeys penguins wolves snails carrot ' +
+    'apple candy cream black tan ginger golden gold navy purple violet grey silver spotted striped'
   ).trim().split(/\s+/));
 
   // Words that are never a character name, however strong the evidence looks.
@@ -121,11 +128,137 @@ window.WriterFree = (function () {
     return null;
   }
 
+  // ---------- what KIND of thing is this? ---------------------------------
+  // The species, object and colour vocabularies live in characters.js, because
+  // that is the file that has to draw them. Reading them from there means the
+  // parser can never recognise a creature the renderer cannot draw. If
+  // characters.js has not loaded, every lookup misses and the story falls back
+  // to the original all-human behaviour rather than breaking.
+  const MODIFIERS = new Set(('little tiny small big giant huge enormous baby young old cute fluffy furry ' +
+    'fat thin tall short happy sad sleepy hungry angry brave shy clever silly funny pretty beautiful ' +
+    'handsome magic magical shiny sparkling soft new best friendly scary funny silly sleepy').split(/\s+/));
+
+  function vocab() {
+    const C = (typeof window !== 'undefined' && window.Characters) ? window.Characters : null;
+    return {
+      species: (C && C.SPECIES) || {}, alias: (C && C.ALIAS) || {},
+      objects: (C && C.OBJECTS) || {}, colours: (C && C.COLOURS) || {}
+    };
+  }
+  function speciesOf(w) {
+    const V = vocab();
+    if (V.species[w]) return V.alias[w] || w;
+    return V.alias[w] && V.species[V.alias[w]] ? V.alias[w] : null;
+  }
+  function objectOf(w) { const V = vocab(); return V.objects[w] ? w : null; }
+  function isCreatureWord(w) { return !!(speciesOf(w) || objectOf(w)); }
+  function isColour(w) { return !!vocab().colours[w]; }
+  function title(w) { return String(w).charAt(0).toUpperCase() + String(w).slice(1); }
+
+  // Adjectives that describe how BIG something is, and words that mean magic.
+  const SIZES = { giant: 1.55, huge: 1.55, enormous: 1.65, big: 1.28, large: 1.28, tall: 1.18,
+    little: 0.62, tiny: 0.50, small: 0.68, baby: 0.50, short: 0.80 };
+  const MAGIC = new Set(['magic', 'magical', 'shiny', 'sparkling', 'glowing', 'enchanted']);
+
+  // Read the description around a word. "Coco the little white rabbit" says
+  // Coco is a rabbit, that she is white and that she is little. Scanning stops
+  // at the first word that is not an article, an adjective or a colour, so
+  // "Mia and Leo walked home" tells us nothing at all and Mia stays human.
+  function describeFrom(toks, k) {
+    const d = { species: null, kind: null, colour: null, size: 1, magic: false };
+    const note = w => {                                          // collect adjectives as we pass them
+      if (isColour(w) && !d.colour) d.colour = w;
+      if (SIZES[w] && d.size === 1) d.size = SIZES[w];
+      if (MAGIC.has(w)) d.magic = true;
+      return ARTICLES.has(w) || MODIFIERS.has(w) || isColour(w);
+    };
+    const take = (w, at) => {
+      d.species = speciesOf(w) || objectOf(w);
+      d.kind = speciesOf(w) ? 'animal' : 'object';
+      d.at = at;                                                 // the token this came from
+    };
+    for (let j = k + 1; j < Math.min(toks.length, k + 8); j++) { // "Coco the little white rabbit"
+      const w = toks[j].lower;
+      if (speciesOf(w) || objectOf(w)) { take(w, j); break; }
+      if (!note(w)) break;
+    }
+    if (!d.species) {                                            // "the little white rabbit Coco"
+      for (let j = k - 1; j >= Math.max(0, k - 6); j--) {
+        const w = toks[j].lower;
+        if (!d.species && (speciesOf(w) || objectOf(w))) { take(w, j); continue; }
+        if (!note(w)) break;
+      }
+    }
+    if (!d.species) {                                            // the name itself: "Bird", "Carrot"
+      const self = toks[k].lower;
+      if (speciesOf(self) || objectOf(self)) take(self, k);
+    }
+    if (!d.species) return {};
+    return d;
+  }
+
+  // A creature or object introduced in NARRATION - "a giant magic carrot",
+  // "a small blue bird" - belongs on the stage even though nobody named it.
+  // Deliberately narration only: what a character SAYS may refer to something
+  // offstage, and this is also what keeps the duck in
+  // `"Look, a giant duck!" said Mia` from appearing in the Mia & Leo cartoon.
+  // Things that belong to the BACKGROUND, drawn by Scenes, never walked onto
+  // the stage as a character: "The sun came up over the hills."
+  const SCENERY = new Set(('sun moon star cloud tree hill mountain river sea ocean house home forest ' +
+    'flower grass rock stone cave pond lake rain snow wind fire').split(/\s+/));
+
+  function findEntities(toks, known, claimed) {
+    const out = [], seen = new Set();
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.inQuote) continue;
+      if (claimed && claimed.has(k)) continue;   // "Coco the rabbit" - that rabbit IS Coco
+      const sp = speciesOf(t.lower), ob = objectOf(t.lower);
+      if (!sp && !ob) continue;
+      if (SCENERY.has(t.lower)) continue;
+      // Only the words BEFORE this one describe it: "a tiny yellow butterfly".
+      // Looking forwards would run straight into the next creature and give
+      // "a giant magic carrot, a tiny yellow butterfly" a carrot that is yellow
+      // and the size of a butterfly.
+      let j = k - 1, article = false, hops = 0;
+      const h = { kind: sp ? 'animal' : 'object', species: sp || ob, colour: null, size: 1, magic: false, at: k };
+      while (j >= 0 && hops++ < 4) {                             // and only "a/an/the" makes it a thing
+        const w = toks[j].lower;
+        if (ARTICLES.has(w)) { article = true; break; }
+        if (isColour(w)) { if (!h.colour) h.colour = w; j--; continue; }
+        if (MAGIC.has(w)) { h.magic = true; j--; continue; }
+        if (SIZES[w]) { if (h.size === 1) h.size = SIZES[w]; j--; continue; }
+        if (MODIFIERS.has(w)) { j--; continue; }
+        break;
+      }
+      if (!article) continue;
+      const name = title(h.species);
+      if (known.has(name.toLowerCase()) || seen.has(name)) continue;
+      seen.add(name);
+      out.push({ name, hint: h });
+    }
+    return out;
+  }
+
   // ---------- who is actually in this story? -------------------------------
   // Split the text into words, remembering for each one how it is capitalised,
   // whether it opens a sentence, and whether it sits inside "quotes".
   function tokens(text) {
     const out = [], re = /[A-Za-z][A-Za-z']*/g;
+    // Quote state has to be SCANNED, not regexed. A straight " serves as both
+    // the opening and the closing quote, so a pattern like /["“][^”]*$/ reads a
+    // closing quote as an opening one and marks the words AFTER the quote as
+    // being inside it. That is how `"Look at this carrot!" said Coco` credited
+    // "carrot" with the verb "said" and put a carrot on stage as a human girl.
+    const inQ = new Uint8Array(text.length);
+    let open = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '\u201c') open = true;
+      else if (ch === '\u201d') open = false;
+      else if (ch === '"') open = !open;
+      inQ[i] = open ? 1 : 0;
+    }
     let m;
     while ((m = re.exec(text)) !== null) {
       const before = text.slice(0, m.index).replace(/\s+$/, '');
@@ -135,7 +268,7 @@ window.WriterFree = (function () {
         caps: /^[A-Z][a-z]/.test(m[0]),
         allcaps: m[0].length > 1 && /^[A-Z]+$/.test(m[0]),
         initial: before === '' || /[.!?:"\u201d]$/.test(before),
-        inQuote: /["\u201c][^"\u201d]*$/.test(before),
+        inQuote: !!inQ[m.index],
         commaBefore: /,$/.test(before),
         bangAfter: /^[!?]/.test(after)
       });
@@ -174,6 +307,13 @@ window.WriterFree = (function () {
       const ordinary = STOP.has(t.w) || COMMON.has(L);
       const capitalised = t.caps || t.allcaps;
 
+      // A species or object word names a CREATURE, not a person. A lowercase
+      // one ("found a carrot", "a small blue bird") never joins the cast: it is
+      // collected as an entity below and drawn as what it actually is. A
+      // capitalised one may be somebody's name, but it still gets the animal or
+      // object design - never a human girl or boy.
+      if (isCreatureWord(L) && !capitalised) return;
+
       // A speaking verb only counts as evidence when it is on the same side of
       // the quotation marks as the word. Otherwise the "said" in
       // `"Wow!" said Max` would be read as evidence about "Wow".
@@ -207,12 +347,23 @@ window.WriterFree = (function () {
       : surface[L].charAt(0).toUpperCase() + surface[L].slice(1)));
   }
 
-  let CAST = [], CAST_SET = new Set();
+  let CAST = [], CAST_SET = new Set(), HINTS = {}, ENTITIES = [];
   function canon(w) {                                   // map any spelling to the cast form
     const s = String(w || '').trim();
     const hit = CAST.find(c => c.toLowerCase() === s.toLowerCase());
     return hit || s;
   }
+  // Which creatures/objects are actually in this sentence? This is what keeps
+  // the carrot, the butterfly and the bird on stage only where they belong.
+  function entitiesIn(t) {
+    if (!ENTITIES.length) return [];
+    const lows = tokens(t).map(k => k.lower), out = [];
+    ENTITIES.forEach(e => {
+      if (lows.indexOf(e.hint.species) >= 0 && out.indexOf(e.name) < 0) out.push(e.name);
+    });
+    return out;
+  }
+
   function namesIn(t) {
     const out = [];
     tokens(String(t || '')).forEach(tk => {
@@ -230,6 +381,22 @@ window.WriterFree = (function () {
     CAST = detectCast(text);                    // who is in this story, decided once
     CAST_SET = new Set(CAST.map(c => c.toLowerCase()));
 
+    // Now decide what each name IS. "Coco the little white rabbit" makes Coco a
+    // small white rabbit; "Mia and Leo" describes nothing, so both stay exactly
+    // the human characters they have always been.
+    const allToks = tokens(text);
+    HINTS = {};
+    // Things the story introduces but never names - "a giant magic carrot".
+    const claimed = new Set();
+    CAST.forEach(n => {
+      const L = n.toLowerCase();
+      let k = allToks.findIndex(t => t.lower === L && (t.caps || t.allcaps));
+      if (k < 0) k = allToks.findIndex(t => t.lower === L);
+      if (k >= 0) { const d = describeFrom(allToks, k); if (d.species) { HINTS[n] = d; claimed.add(d.at); } }
+    });
+    ENTITIES = findEntities(allToks, CAST_SET, claimed);
+    ENTITIES.forEach(e => { HINTS[e.name] = e.hint; });
+
     const scenes = [];
     let cur = null;
     const startScene = bg => { cur = { bg, beats: [] }; scenes.push(cur); };
@@ -242,7 +409,7 @@ window.WriterFree = (function () {
         if (m) { startScene(m[1].toLowerCase()); continue; }
         if (!cur) startScene('park');
         m = l.match(/^([^:]{1,20}):\s*(.+)$/);
-        const said = namesIn(l);
+        const said = namesIn(l).concat(entitiesIn(l));
         const raw = m ? m[1].trim() : 'Narrator';
         cur.beats.push(beat(raw === 'Narrator' ? 'Narrator' : canon(raw), m ? m[2].trim() : l, said));
       }
@@ -267,7 +434,7 @@ window.WriterFree = (function () {
         const q = s.match(/["\u201c]([^"\u201d]+)["\u201d]/);
         const outside = s.replace(/["\u201c][^"\u201d]*["\u201d]/g, '');
         const names = namesIn(outside);      // who is speaking: only names OUTSIDE the quote
-        const present = namesIn(s);          // who appears at all, including inside "Look, Leo!"
+        const present = namesIn(s).concat(entitiesIn(s));   // who appears at all, including inside "Look, Leo!"
         if (q) {
           let who = names[0] || (prev && prev !== last ? prev : last) || 'Narrator';
           prev = last; last = who;
@@ -288,7 +455,7 @@ window.WriterFree = (function () {
     }));
     return {
       title: text.trim().split(/\s+/).slice(0, 5).join(' '),
-      characters: cast.map(n => ({ name: n })),
+      characters: cast.map(n => ({ name: n, hint: HINTS[n] || null })),
       scenes
     };
   }

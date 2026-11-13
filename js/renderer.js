@@ -7,7 +7,11 @@ window.Renderer = (function () {
   const dur = b => Math.max(2.2, b.say.split(/\s+/).length * 0.38 + 0.9);
 
   function build(script) {
-    const looks = {}; script.characters.forEach(c => looks[c.name] = Characters.look(c.name));
+    // `c.hint` carries what the story said this character IS - "Coco the little
+    // white rabbit" arrives with {kind:'animal', species:'rabbit', colour:'white',
+    // size:0.62}. With no hint, Characters.look returns the same human design it
+    // has always returned, so Mia and Leo are drawn exactly as before.
+    const looks = {}; script.characters.forEach(c => looks[c.name] = Characters.look(c.name, c.hint));
     let t = 0;
     const scenes = script.scenes.map(sc => {
       // A character appears in a scene if they SPEAK in it or are MENTIONED in
@@ -45,7 +49,9 @@ window.Renderer = (function () {
       const x = from + (slot - from) * ease, walking = p < 1, speaker = beat.who === name;
       const action = walking ? 'walk' : (speaker || beat.action === 'run' ? beat.action : 'none');
       const P = Acting.pose(tl.looks[name], { t, emotion: walking ? 'happy' : beat.emotion, action, talking: speaker && !walking, laugh: laugh && !walking });
-      Characters.draw(c, tl.looks[name], P, x, FEET, SCALE, slot > W / 2 && n > 1);
+      // the clock is passed through so animals and objects can keep moving:
+      // Acting.pose() deliberately does not put `t` on the pose object.
+      Characters.draw(c, tl.looks[name], P, x, FEET, SCALE, slot > W / 2 && n > 1, t);
       c.fillStyle = '#2b1d3a'; c.font = 'bold 22px Trebuchet MS, Verdana, sans-serif'; c.textAlign = 'center';
     });
     c.restore();
