@@ -58,6 +58,7 @@ window.WriterFree = (function () {
     'wear weather week well went were wet whale what wheel when where whether which while whisper whispered white ' +
     'who whole whom whose why wide wife wig wild will win wind window window wing wings winter wise wish with ' +
     'within without woke wolf woman wonder wood wooden wool word words work world worm worried worth would write ' +
+    'brick cottage named ' +
     'wrong yard yawn year yellow yes yesterday yet yogurt you young your zoo ' +
     // common verbs in the past tense, so "found a carrot" cannot cast "Found"
     'found picked grabbed dropped held brought thought forgot began watched nodded skipped ' +
@@ -203,7 +204,7 @@ window.WriterFree = (function () {
   // Coco is a rabbit, that she is white and that she is little. Scanning stops
   // at the first word that is not an article, an adjective or a colour, so
   // "Mia and Leo walked home" tells us nothing at all and Mia stays human.
-  function describeFrom(toks, k) {
+  function describeFrom(toks, k, claimed) {
     const d = { species: null, kind: null, colour: null, size: 1, magic: false };
     const note = w => {                                          // collect adjectives as we pass them
       if (isColour(w) && !d.colour) d.colour = w;
@@ -217,23 +218,109 @@ window.WriterFree = (function () {
       d.at = at;                                                 // the token this came from
     };
     for (let j = k + 1; j < Math.min(toks.length, k + 8); j++) { // "Coco the little white rabbit"
+      if (claimed && claimed.has(j)) break;                      // that species is spoken for: stop here
       const w = toks[j].lower;
       if (speciesOf(w) || objectOf(w)) { take(w, j); break; }
       if (!note(w)) break;
     }
     if (!d.species) {                                            // "the little white rabbit Coco"
       for (let j = k - 1; j >= Math.max(0, k - 6); j--) {
+        if (claimed && claimed.has(j)) break;                    // ...in BOTH directions: it is a wall
         const w = toks[j].lower;
         if (!d.species && (speciesOf(w) || objectOf(w))) { take(w, j); continue; }
         if (!note(w)) break;
       }
     }
-    if (!d.species) {                                            // the name itself: "Bird", "Carrot"
+    if (!d.species && !(claimed && claimed.has(k))) {            // the name itself: "Bird", "Carrot"
       const self = toks[k].lower;
       if (speciesOf(self) || objectOf(self)) take(self, k);
     }
     if (!d.species) return {};
     return d;
+  }
+
+  // A species stated in its own sentence is still a species. The parser used to
+  // understand only "Coco the little white rabbit", so these two shapes left
+  // Coco a human girl - and worse, describeFrom's backward scan then handed
+  // the rabbit to whoever was named NEXT, so "Coco was a little white rabbit.
+  // Max was a brown squirrel." drew MAX as the rabbit.
+  const ISVERB = new Set(['is', 'was', 'were', 'are', 'became', 'becomes']);
+  const CALLED = new Set(['named', 'called']);
+  function statedSpecies(toks) {
+    const hints = {}, claim = new Set(), names = [];
+    const walk = (from, dir) => {                       // article/modifiers -> species
+      const d = { species: null, kind: null, colour: null, size: 1, magic: false, at: -1, idx: [] };
+      for (let j = from; j >= 0 && j < toks.length; j += dir) {
+        if (toks[j].inQuote) break;
+        const w = toks[j].lower;
+        if (speciesOf(w) || objectOf(w)) {
+          d.species = speciesOf(w) || objectOf(w); d.kind = speciesOf(w) ? 'animal' : 'object';
+          d.at = j; d.idx.push(j); break;
+        }
+        if (isColour(w)) { if (!d.colour) d.colour = w; d.idx.push(j); continue; }
+        if (SIZES[w]) { if (d.size === 1) d.size = SIZES[w]; d.idx.push(j); continue; }
+        if (MAGIC.has(w)) { d.magic = true; d.idx.push(j); continue; }
+        if (MODIFIERS.has(w) || ARTICLES.has(w)) { d.idx.push(j); continue; }
+        break;
+      }
+      return d;
+    };
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.inQuote) continue;
+      const nameish = (t.caps || t.allcaps) && !STOP.has(t.w) && !speciesOf(t.lower) && !objectOf(t.lower);
+      // shape 1: "<Name> was a little white rabbit."
+      if (nameish && k + 1 < toks.length && ISVERB.has(toks[k + 1].lower)) {
+        const d = walk(k + 2, 1);
+        if (d.species) {
+          const nm = canon(t.w);
+          if (!hints[nm]) hints[nm] = d;
+          d.idx.forEach(i => claim.add(i)); claim.add(k + 1);
+          if (names.indexOf(nm) < 0) names.push(nm);
+          continue;
+        }
+      }
+      // shape 2: "A rabbit named Coco ..."
+      if (speciesOf(t.lower)) {
+        let j = k - 1, article = false;
+        while (j >= 0) { const w = toks[j].lower;
+          if (ARTICLES.has(w)) { article = true; break; }
+          if (isColour(w) || SIZES[w] || MAGIC.has(w) || MODIFIERS.has(w)) { j--; continue; }
+          break; }
+        const nx = toks[k + 1], n2 = toks[k + 2];
+        if (article && nx && CALLED.has(nx.lower) && n2 && (n2.caps || n2.allcaps) && !STOP.has(n2.w)) {
+          const d = walk(k, -1);
+          const nm = canon(n2.w);
+          if (d.species && !hints[nm]) hints[nm] = d;
+          d.idx.forEach(i => claim.add(i)); claim.add(k); claim.add(k + 1);
+          if (names.indexOf(nm) < 0) names.push(nm);
+        }
+      }
+    }
+    return { hints: hints, claim: claim, names: names };
+  }
+
+  // "a wooden house" is a THING the story can put on stage; bare "the house" is
+  // scenery. Without this distinction the word house could only ever switch
+  // the backdrop, so a story about a wooden house never showed one.
+  const MATERIALS = new Set(['wooden', 'wood', 'brick', 'stone', 'log', 'logs']);
+  function describedPlace(toks, k) {
+    const w0 = toks[k].lower;
+    if (w0 !== 'house' && w0 !== 'home') return false;
+    for (let j = k - 1, hops = 0; j >= 0 && hops < 4; j--, hops++) {
+      const w = toks[j].lower;
+      if (MATERIALS.has(w) || isColour(w) || MODIFIERS.has(w) || SIZES[w]) return true;
+      return false;
+    }
+    return false;
+  }
+  const HOUSE_RE = /\b(?:a|an|the)\s+(?:[a-zA-Z]+\s+){0,3}(?:house|home)\b/gi;
+  function stripDescribedHouse(txt) {
+    return txt.replace(HOUSE_RE, m => {
+      const mid = m.toLowerCase().split(/\s+/).slice(1, -1);
+      const described = mid.some(w => MATERIALS.has(w) || isColour(w) || MODIFIERS.has(w) || SIZES[w]);
+      return described ? ' ' : m;                    // a shown house is not a room
+    });
   }
 
   // A creature or object introduced in NARRATION - "a giant magic carrot",
@@ -254,7 +341,7 @@ window.WriterFree = (function () {
       if (claimed && claimed.has(k)) continue;   // "Coco the rabbit" - that rabbit IS Coco
       const sp = speciesOf(t.lower), ob = objectOf(t.lower);
       if (!sp && !ob) continue;
-      if (SCENERY.has(t.lower)) continue;
+      if (SCENERY.has(t.lower) && !describedPlace(toks, k)) continue;
       // Only the words BEFORE this one describe it: "a tiny yellow butterfly".
       // Looking forwards would run straight into the next creature and give
       // "a giant magic carrot, a tiny yellow butterfly" a carrot that is yellow
@@ -267,7 +354,7 @@ window.WriterFree = (function () {
         if (isColour(w)) { if (!h.colour) h.colour = w; j--; continue; }
         if (MAGIC.has(w)) { h.magic = true; j--; continue; }
         if (SIZES[w]) { if (h.size === 1) h.size = SIZES[w]; j--; continue; }
-        if (MODIFIERS.has(w)) { j--; continue; }
+        if (MODIFIERS.has(w) || MATERIALS.has(w)) { j--; continue; }   // "a WOODEN house"
         break;
       }
       if (!article) continue;
@@ -599,16 +686,23 @@ window.WriterFree = (function () {
     // the human characters they have always been.
     const allToks = tokens(text);
     HINTS = {};
+    // "Coco was a rabbit" / "a rabbit named Coco": stated anywhere in the story,
+    // true for every mention of that name - and never for anybody else.
+    const stated = statedSpecies(allToks);
     // Things the story introduces but never names - "a giant magic carrot".
-    const claimed = new Set();
+    const claimed = new Set(stated.claim);
+    stated.names.forEach(nm => {
+      if (CAST.indexOf(nm) < 0 && !CAST_SET.has(nm.toLowerCase())) { CAST.push(nm); CAST_SET.add(nm.toLowerCase()); }
+    });
     CAST.forEach(n => {
       const L = n.toLowerCase();
       let k = allToks.findIndex(t => t.lower === L && (t.caps || t.allcaps));
       if (k < 0) k = allToks.findIndex(t => t.lower === L);
-      if (k >= 0) { const d = describeFrom(allToks, k); if (d.species) { HINTS[n] = d; claimed.add(d.at); } }
+      if (k >= 0) { const d = describeFrom(allToks, k, claimed); if (d.species) { HINTS[n] = d; claimed.add(d.at); } }
     });
     ENTITIES = findEntities(allToks, CAST_SET, claimed);
     ENTITIES.forEach(e => { HINTS[e.name] = e.hint; });
+    Object.keys(stated.hints).forEach(nm => { if (!HINTS[nm]) HINTS[nm] = stated.hints[nm]; });
     // A PROP is something the story mentions in passing - "a tiny yellow
     // butterfly flew past". A CAST member is somebody the story names. The
     // renderer lets props leave the stage once the story has moved on, but a
@@ -636,7 +730,7 @@ window.WriterFree = (function () {
       const sentences = splitSentences(text);
       let last = null, prev = null, lastQuote = null;
       for (const s of sentences) {
-        const p = placeOf(s.replace(/["\u201c][^"\u201d]*["\u201d]/g, ''));
+        const p = placeOf(stripDescribedHouse(s.replace(/["“][^"”]*["”]/g, '')));
         if (p && (!cur || p !== cur.bg)) startScene(p);
         if (!cur) startScene('park');
         const S = s.trim();

@@ -3,8 +3,33 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const fail = msg => (window.showError ? window.showError(msg) : alert(msg));
-  const NEED = { ScriptFormat: 'js/script-format.js', WriterFree: 'js/writer-free.js', Characters: 'js/characters.js',
+  const NEED = { ScriptFormat: 'js/script-format.js', WriterFree: 'js/writer-free.js',
+                 ArtPaths: 'js/art-paths.js', ArtRig: 'js/art-rig.js', Characters: 'js/characters.js',
                  Acting: 'js/acting.js', Scenes: 'js/scenes.js', Renderer: 'js/renderer.js' };
+  // The shipped example story: four scenes, two premium animal characters,
+  // dialogue, sound effects and a night ending. One tap loads it.
+  const EXAMPLE = [
+    'scene: park',
+    'Coco the little white rabbit hopped to the sunny meadow.',
+    'Max the brown squirrel ran over with his big bushy tail.',
+    'Coco: Max! Max! Come out and play!',
+    'Max: Coco! What a surprise! I found a giant red apple!',
+    'Coco laughed and jumped with joy.',
+    'scene: street',
+    'Coco and Max ran through the busy street toward the wooden house.',
+    'Max: Look! The apple is right there under the old tree!',
+    'Coco looked surprised and stared at the little apple.',
+    'Boing! Max jumped too far and dropped the apple. Crash! It fell into a mud puddle!',
+    'Coco: Oh no! Quick, catch it!',
+    'scene: room',
+    'They carried the muddy apple inside the warm house. Knock knock!',
+    'Max: Safe at last. Good work, Coco.',
+    'Coco smiled warmly and waved goodbye.',
+    'scene: night',
+    'At night Coco stood under the moon and the stars.',
+    'Coco: Good night, Max. Good night, friends.',
+    'Max: Good night, Coco. See you tomorrow!'
+  ].join('\n');
   const missing = () => Object.keys(NEED).filter(k => !window[k]).map(k => NEED[k]);
   let current = null;
 
@@ -66,6 +91,7 @@
   }
 
   const make$ = $('make'); if (make$) make$.addEventListener('click', make);
+  const ex$ = $('example'); if (ex$) ex$.addEventListener('click', () => { const t = $('story'); if (t) { t.value = EXAMPLE; t.focus(); } });
   const rep = $('replay');
   if (rep) rep.addEventListener('click', () => { try { if (current) { playSound(current); Renderer.play(current, $('stage')); } } catch (e) { fail(e.message); } });
 
