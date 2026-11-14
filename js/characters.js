@@ -49,6 +49,7 @@ window.Characters = (function () {
     sheep:     { ears: 'floppy', tail: 'stub',    fur: '#f2ede2', nose: '#4a4453', size: 0.95, upright: false, legs: 4, wool: true },
     duck:      { ears: 'none',   tail: 'feather', fur: '#f2c94c', nose: '#ff9d2e', size: 0.75, upright: true,  legs: 2, beak: true },
     bird:      { ears: 'none',   tail: 'feather', fur: '#3d7bd6', nose: '#ff9d2e', size: 0.34, upright: true,  legs: 2, beak: true, wings: true },
+    chick:     { ears: 'none',   tail: 'feather', fur: '#ffd84a', nose: '#ff9d2e', size: 0.30, upright: true,  legs: 2, beak: true, wings: true },
     owl:       { ears: 'none',   tail: 'feather', fur: '#a8763e', nose: '#ff9d2e', size: 0.65, upright: true,  legs: 2, beak: true, wings: true },
     penguin:   { ears: 'none',   tail: 'feather', fur: '#2b2b33', nose: '#ff9d2e', size: 0.70, upright: true,  legs: 2, beak: true, wings: true, belly: '#ffffff' },
     butterfly: { ears: 'none',   tail: 'none',    fur: '#ffd84a', nose: '#2b2b33', size: 0.30, flying: true, butterfly: true },
@@ -66,6 +67,7 @@ window.Characters = (function () {
     puppy: 'dog', duckling: 'duck', birds: 'bird', butterflies: 'butterfly', rabbits: 'rabbit',
     squirrels: 'squirrel', bears: 'bear', foxes: 'fox', cats: 'cat', dogs: 'dog', frogs: 'frog',
     bees: 'bee', owls: 'owl', mice: 'mouse', lions: 'lion', tigers: 'tiger', horses: 'horse',
+    chicks: 'chick',
     dragons: 'dragon', unicorns: 'unicorn', turtles: 'turtle', fishes: 'fish', pigs: 'pig',
     sheep: 'sheep', deer: 'deer', elephants: 'elephant', monkeys: 'monkey', penguins: 'penguin',
     wolves: 'wolf', snails: 'snail'
@@ -77,6 +79,7 @@ window.Characters = (function () {
     cake:     { shape: 'round',    colour: '#ff9ec4', leaf: '#ffffff', size: 0.70 },
     ball:     { shape: 'round',    colour: '#e0483d', leaf: '#ffffff', size: 0.55 },
     apple:    { shape: 'round',    colour: '#e0483d', leaf: '#4fa83d', size: 0.45 },
+    puddle:   { shape: 'puddle',   colour: '#7a4a26', leaf: '#5a3418', size: 1.00 },
     orange:   { shape: 'round',    colour: '#ff8c1a', leaf: '#4fa83d', size: 0.45 },
     balloon:  { shape: 'balloon',  colour: '#ff5d73', leaf: '#c9ced6', size: 0.85 },
     kite:     { shape: 'kite',     colour: '#3ec1d3', leaf: '#ffd84a', size: 0.90 },
@@ -117,7 +120,7 @@ window.Characters = (function () {
   const H_OBJECT = { carrot: 337, cake: 193, ball: 193, apple: 193, orange: 193, balloon: 288,
     kite: 266, star: 240, flower: 201, cookie: 193, egg: 149, gift: 195, present: 195, box: 195,
     book: 195, boat: 211, rocket: 296, key: 193, ring: 193, candy: 193, cup: 195, hat: 195,
-    sun: 240, moon: 193, house: 347 };
+    sun: 240, moon: 193, house: 347, puddle: 96 };
   // how tall a "normal" one of these should stand, in pixels
   const REF = { animal: 400, object: 200 };
   // and the band nothing may leave: big enough to act with, small enough that a
@@ -257,6 +260,14 @@ window.Characters = (function () {
     c.lineJoin = 'round'; c.strokeStyle = INK;
     const col = L.colour, acc = L.accent || '#4fa83d';
 
+    if (O.shape === 'puddle') {
+      c.translate(-P.dx, -(P.dy - 8 + bob));                 // a puddle lies still: no bob, no squash
+      c.fillStyle = O.colour; c.beginPath(); c.ellipse(0, -10, 120, 26, 0, 0, 7); c.fill();
+      c.strokeStyle = INK; c.lineWidth = 6; c.stroke();
+      c.fillStyle = O.leaf; c.beginPath(); c.ellipse(-14, -14, 74, 13, 0, 0, 7); c.fill();
+      c.fillStyle = 'rgba(255,255,255,0.35)'; c.beginPath(); c.ellipse(34, -16, 26, 7, -0.2, 0, 7); c.fill();
+      c.restore(); return;
+    }
     if (O.shape === 'carrot') {
       // a giant carrot: orange tapered root with green leaves on top
       for (const k of [-1, 0, 1]) {

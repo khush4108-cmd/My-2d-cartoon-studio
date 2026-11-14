@@ -1,0 +1,22 @@
+scene: park
+Aarav, Coco and Leo set out on a new adventure.
+Aarav the boy walked into the sunny park.
+Coco the little white rabbit hopped out from behind a tree.
+Leo the friendly lion padded along the grass.
+Aarav: Hello! My name is Aarav. Who are you?
+Coco: My name is Coco. I am looking for my friend.
+Leo: I am Leo the lion. I will help you look.
+scene: street
+A red apple lay under the tree by the busy street.
+Aarav, Coco and Leo walked down the street together.
+Coco: Look! That apple is exactly what we need!
+Aarav picked up the red apple and held it in his hand.
+Leo: Good find, Aarav! Let us share it together.
+scene: room
+Aarav, Coco and Leo sat inside the warm house to rest.
+Coco: Friends always share.
+All three friends laugh happily.
+scene: night
+At night Aarav, Coco and Leo stood under the moon and the stars.
+Leo: Good night, little friends. See you tomorrow!
+Aarav: Good night, Leo! Good night, Coco!

@@ -2,16 +2,17 @@ scene: park
 Coco the little white rabbit hopped to the sunny meadow.
 Max the brown squirrel ran over with his big bushy tail.
 Coco: Max! Max! Come out and play!
-Max: Coco! What a surprise! I found a giant apple!
+Max: Coco! What a surprise! I found a giant red apple!
+Max picked up the giant red apple and held it in his paws.
 Coco laughed and jumped with joy.
 scene: street
-Coco and Max ran through the busy street toward the wooden house.
-Max: Look! The apple is right there under the old tree!
-Coco looked surprised and stared at the little apple.
-Boing! Max jumped too far and dropped the apple. Crash! It fell into a mud puddle!
-Coco: Oh no! Quick, catch it!
+Coco and Max ran through the busy street.
+Max carried the red apple beside a big brown mud puddle.
+Max: Look at this big mud puddle!
+Max threw the apple into the mud puddle! Splash!
+Coco: Oh no! The apple is stuck in the mud puddle!
 scene: room
-They carried the muddy apple inside the warm house. Knock knock!
+They walked inside the warm house. Knock knock!
 Max: Safe at last. Good work, Coco.
 Coco smiled warmly and waved goodbye.
 scene: night

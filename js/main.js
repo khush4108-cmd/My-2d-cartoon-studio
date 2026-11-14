@@ -14,22 +14,82 @@
     'Max the brown squirrel ran over with his big bushy tail.',
     'Coco: Max! Max! Come out and play!',
     'Max: Coco! What a surprise! I found a giant red apple!',
+    'Max picked up the giant red apple and held it in his paws.',
     'Coco laughed and jumped with joy.',
     'scene: street',
-    'Coco and Max ran through the busy street toward the wooden house.',
-    'Max: Look! The apple is right there under the old tree!',
-    'Coco looked surprised and stared at the little apple.',
-    'Boing! Max jumped too far and dropped the apple. Crash! It fell into a mud puddle!',
-    'Coco: Oh no! Quick, catch it!',
+    'Coco and Max ran through the busy street.',
+    'Max carried the red apple beside a big brown mud puddle.',
+    'Max: Look at this big mud puddle!',
+    'Max threw the apple into the mud puddle! Splash!',
+    'Coco: Oh no! The apple is stuck in the mud puddle!',
     'scene: room',
-    'They carried the muddy apple inside the warm house. Knock knock!',
+    'They walked inside the warm house. Knock knock!',
     'Max: Safe at last. Good work, Coco.',
     'Coco smiled warmly and waved goodbye.',
     'scene: night',
     'At night Coco stood under the moon and the stars.',
     'Coco: Good night, Max. Good night, friends.',
-    'Max: Good night, Coco. See you tomorrow!'
+    'Max: Good night, Coco. See you tomorrow!',
   ].join('\n');
+  // Second shipped example: a human boy, a rabbit and a four-legged lion,
+  // so the studio is exercised with mixed kinds AND a quadruped on stage.
+  const EXAMPLE2 = [
+    'scene: park',
+    'Aarav, Coco and Leo set out on a new adventure.',
+    'Aarav the boy walked into the sunny park.',
+    'Coco the little white rabbit hopped out from behind a tree.',
+    'Leo the friendly lion padded along the grass.',
+    'Aarav: Hello! My name is Aarav. Who are you?',
+    'Coco: My name is Coco. I am looking for my friend.',
+    'Leo: I am Leo the lion. I will help you look.',
+    'scene: street',
+    'A red apple lay under the tree by the busy street.',
+    'Aarav, Coco and Leo walked down the street together.',
+    'Coco: Look! That apple is exactly what we need!',
+    'Aarav picked up the red apple and held it in his hand.',
+    'Leo: Good find, Aarav! Let us share it together.',
+    'scene: room',
+    'Aarav, Coco and Leo sat inside the warm house to rest.',
+    'Coco: Friends always share.',
+    'All three friends laugh happily.',
+    'scene: night',
+    'At night Aarav, Coco and Leo stood under the moon and the stars.',
+    'Leo: Good night, little friends. See you tomorrow!',
+    'Aarav: Good night, Leo! Good night, Coco!',
+  ].join('\n');
+  // Third shipped example: "Bunty and the Lost Baby Bird" - the first full
+  // movie story. Exercises a human boy, the new chick species and a bird,
+  // with the mother bird acting (hugging, flying) without any dialogue.
+  const EXAMPLE3 = [
+    'scene: park',
+    'Bunty the boy walked happily through his sunny garden.',
+    'Chickie the tiny baby chick cried under the rose bush.',
+    'Chickie: Help! Where is my mommy?',
+    'Bunty: Oh! Hello, little one. Why are you crying?',
+    'Chickie: I cannot find my mommy. I am lost!',
+    'Bunty: Do not worry. I will help you find her.',
+    'scene: park',
+    'Bunty gently looked around the garden. He checked behind the bushes and under the trees.',
+    'Bunty: Do you remember where you last saw your mommy?',
+    'Chickie: We were near the big tree. Then the wind blew, and I fell down.',
+    'Bunty: Then let us go to the big tree together!',
+    'Chickie: I am scared.',
+    'Bunty: Stay close to me. Everything will be okay.',
+    'scene: park',
+    'Bunty and Chickie reached the big tree. Suddenly they heard a loud chirping sound from above.',
+    'Chickie: Look! My mommy! I am here!',
+    'Mimi the big blue bird flew down joyfully and landed beside her baby.',
+    'Bunty: Your little one is safe with you now!',
+    'Chickie: I missed you so much!',
+    'Mimi lovingly hugged her little baby with her wings.',
+    'scene: park',
+    'Chickie: Thank you, Bunty! You are my best friend!',
+    'Bunty: You are welcome! Friends always help each other.',
+    'Mimi and her baby returned safely to their nest. Bunty walked home feeling happy.',
+    'Bunty: What a wonderful day! It feels so good to help someone!',
+    'And from that day, Bunty and Chickie became special friends.',
+  ].join('\n');
+
   const missing = () => Object.keys(NEED).filter(k => !window[k]).map(k => NEED[k]);
   let current = null;
 
@@ -85,13 +145,26 @@
       if (problems.length) return fail(problems.join(' '));
       current = script;
       showScript(script);
-      playSound(script);                    // sound first, then the picture
-      Renderer.play(script, $('stage'));
+      // unlock() must run INSIDE this click tick for iOS Safari; loading the
+      // recorded voices is async, so the picture starts once they are ready
+      // (or immediately with the built-in voice if there are none).
+      if (window.CartoonAudio && CartoonAudio.unlock) CartoonAudio.unlock();
+      const voicesReady = (window.CartoonAudio && CartoonAudio.loadVoices)
+        ? CartoonAudio.loadVoices('voices/bunty/manifest.json') : Promise.resolve(0);
+      voicesReady.catch(function () {}).then(function () {
+        try {
+          if (window.CartoonAudio && CartoonAudio.stamp) CartoonAudio.stamp(script);
+          playSound(script);                    // sound first, then the picture
+          Renderer.play(script, $('stage'));
+        } catch (e) { fail('Something went wrong: ' + e.message); }
+      });
     } catch (e) { fail('Something went wrong: ' + e.message); }
   }
 
   const make$ = $('make'); if (make$) make$.addEventListener('click', make);
   const ex$ = $('example'); if (ex$) ex$.addEventListener('click', () => { const t = $('story'); if (t) { t.value = EXAMPLE; t.focus(); } });
+  const ex2$ = $('example2'); if (ex2$) ex2$.addEventListener('click', () => { const t = $('story'); if (t) { t.value = EXAMPLE2; t.focus(); } });
+  const ex3$ = $('example3'); if (ex3$) ex3$.addEventListener('click', () => { const t = $('story'); if (t) { t.value = EXAMPLE3; t.focus(); } });
   const rep = $('replay');
   if (rep) rep.addEventListener('click', () => { try { if (current) { playSound(current); Renderer.play(current, $('stage')); } } catch (e) { fail(e.message); } });
 
@@ -116,5 +189,8 @@
     if (m.length) fail('These files did not load: ' + m.join(', ') + '.');
     else if (!$('stage') || !rep) fail('Your index.html is the old version. Please replace it with the new index.html.');
     else Scenes.draw($('stage').getContext('2d'), 'park', 0);
+    // Warm the recorded voice clips in the background so the first press of
+    // "Make my cartoon" never has to wait for them.
+    if (window.CartoonAudio && CartoonAudio.loadVoices) CartoonAudio.loadVoices('voices/bunty/manifest.json');
   } catch (e) { fail('Start-up problem: ' + e.message); }
 })();

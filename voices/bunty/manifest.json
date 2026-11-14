@@ -1,0 +1,29 @@
+{
+  "story": "bunty",
+  "note": "Pre-recorded dialogue for 'Bunty and the Lost Baby Bird'. Each line is matched to a story beat by speaker + exact text, so editing the story safely falls back to the built-in voice for changed lines.",
+  "lines": [
+    { "who": "Narrator", "file": "n01.mp3", "text": "Bunty the boy walked happily through his sunny garden." },
+    { "who": "Narrator", "file": "n02.mp3", "text": "Chickie the tiny baby chick cried under the rose bush." },
+    { "who": "Chickie",  "file": "c01.mp3", "text": "Help! Where is my mommy?" },
+    { "who": "Bunty",    "file": "b01.mp3", "text": "Oh! Hello, little one. Why are you crying?" },
+    { "who": "Chickie",  "file": "c02.mp3", "text": "I cannot find my mommy. I am lost!" },
+    { "who": "Bunty",    "file": "b02.mp3", "text": "Do not worry. I will help you find her." },
+    { "who": "Narrator", "file": "n03.mp3", "text": "Bunty gently looked around the garden. He checked behind the bushes and under the trees." },
+    { "who": "Bunty",    "file": "b03.mp3", "text": "Do you remember where you last saw your mommy?" },
+    { "who": "Chickie",  "file": "c03.mp3", "text": "We were near the big tree. Then the wind blew, and I fell down." },
+    { "who": "Bunty",    "file": "b04.mp3", "text": "Then let us go to the big tree together!" },
+    { "who": "Chickie",  "file": "c04.mp3", "text": "I am scared." },
+    { "who": "Bunty",    "file": "b05.mp3", "text": "Stay close to me. Everything will be okay." },
+    { "who": "Narrator", "file": "n04.mp3", "text": "Bunty and Chickie reached the big tree. Suddenly they heard a loud chirping sound from above." },
+    { "who": "Chickie",  "file": "c05.mp3", "text": "Look! My mommy! I am here!" },
+    { "who": "Narrator", "file": "n05.mp3", "text": "Mimi the big blue bird flew down joyfully and landed beside her baby." },
+    { "who": "Bunty",    "file": "b06.mp3", "text": "Your little one is safe with you now!" },
+    { "who": "Chickie",  "file": "c06.mp3", "text": "I missed you so much!" },
+    { "who": "Narrator", "file": "n06.mp3", "text": "Mimi lovingly hugged her little baby with her wings." },
+    { "who": "Chickie",  "file": "c07.mp3", "text": "Thank you, Bunty! You are my best friend!" },
+    { "who": "Bunty",    "file": "b07.mp3", "text": "You are welcome! Friends always help each other." },
+    { "who": "Narrator", "file": "n07.mp3", "text": "Mimi and her baby returned safely to their nest. Bunty walked home feeling happy." },
+    { "who": "Bunty",    "file": "b08.mp3", "text": "What a wonderful day! It feels so good to help someone!" },
+    { "who": "Narrator", "file": "n08.mp3", "text": "And from that day, Bunty and Chickie became special friends." }
+  ]
+}

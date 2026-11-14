@@ -14,7 +14,7 @@ window.CartoonAudio = (function () {
   const TTS = window.speechSynthesis || null;
   const Utt = window.SpeechSynthesisUtterance || null;
 
-  let ctx = null, master = null, sfxBus = null, ambBus = null;
+  let ctx = null, master = null, sfxBus = null, ambBus = null, spBus = null;
   let noiseBuf = null, silentBuf = null, chosenVoice = null, voicePicked = false;
   let volume = 0.9, muted = false, primed = false, lastError = '';
   let liveSources = [], speechTimers = [];
@@ -97,6 +97,22 @@ window.CartoonAudio = (function () {
         const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 3.2;
         const gn = ctx.createGain(); envelope(gn, at, 0.9 * g, 0.004, 0.13);
         s.connect(bp); bp.connect(gn); gn.connect(sfxBus);
+      }
+    },
+    splash(when, g) {                                  // mud puddle splash
+      const s = noiseSource(when, 0.5);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime(900, when);
+      bp.frequency.exponentialRampToValueAtTime(240, when + 0.32);
+      const gn = ctx.createGain(); envelope(gn, when, 0.85 * g, 0.008, 0.45);
+      s.connect(bp); bp.connect(gn); gn.connect(sfxBus);
+      for (let k = 0; k < 3; k++) {                    // falling droplets
+        const at = when + 0.10 + k * 0.09;
+        const o = ctx.createOscillator(); o.type = 'sine';
+        o.frequency.setValueAtTime(520 - k * 90, at);
+        o.frequency.exponentialRampToValueAtTime(160, at + 0.08);
+        const dg = ctx.createGain(); envelope(dg, at, 0.4 * g, 0.005, 0.1);
+        o.connect(dg); dg.connect(sfxBus); o.start(at); o.stop(at + 0.12); keep(o);
       }
     },
     pop(when, g) {                                     // tiny surprise blip
@@ -243,6 +259,52 @@ window.CartoonAudio = (function () {
     } catch (e) { lastError = 'speech failed: ' + e.message; }
   }
 
+  // ---------- pre-recorded dialogue (the voice bus) ----------------------
+  // Recorded clips travel through Web Audio on the SAME clock as the effects
+  // and the ambience, so a MediaRecorder tap() captures them - something the
+  // built-in speechSynthesis voice could never do. Clips are matched to story
+  // beats by speaker + exact text; anything unmatched simply keeps using the
+  // old built-in voice, so editing a story can never desynchronise the movie.
+  const VOICE = { map: {}, ready: false, done: false, loading: null, count: 0 };
+  const vkey = (who, say) => String(who || 'Narrator') + '|' + String(say || '').trim().toLowerCase();
+  function loadVoices(url) {
+    if (VOICE.ready) return Promise.resolve(VOICE.count);
+    if (VOICE.loading) return VOICE.loading;
+    if (typeof fetch !== 'function') { VOICE.done = true; return Promise.resolve(0); }
+    unlock();                                    // decoding needs an AudioContext
+    if (!ctx) { VOICE.done = true; return Promise.resolve(0); }
+    const base = String(url).replace(/manifest\.json.*$/, '');
+    VOICE.loading = fetch(url)
+      .then(function (r) { if (!r.ok) throw new Error('manifest ' + r.status); return r.json(); })
+      .then(function (man) {
+        const lines = (man && man.lines) || [];
+        return Promise.all(lines.map(function (ln) {
+          return fetch(base + ln.file)
+            .then(function (r) { if (!r.ok) throw new Error(ln.file + ' ' + r.status); return r.arrayBuffer(); })
+            .then(function (ab) { return new Promise(function (res) { ctx.decodeAudioData(ab, res, function () { res(null); }); }); })
+            .then(function (buf) { if (buf) { VOICE.map[vkey(ln.who, ln.text)] = buf; VOICE.count++; } })
+            .catch(function () { /* one missing clip must not kill the rest */ });
+        }));
+      })
+      .then(function () { VOICE.ready = true; VOICE.done = true; return VOICE.count; })
+      .catch(function (e) { lastError = 'voices: ' + e.message; VOICE.ready = false; VOICE.done = true; return 0; });
+    return VOICE.loading;
+  }
+  // Attach each loaded clip to its beat BEFORE the timeline is built, so the
+  // picture stretches every caption window to fit the recorded line.
+  function stamp(script) {
+    if (!script || !VOICE.ready || !VOICE.count) return 0;
+    let n = 0;
+    (script.scenes || []).forEach(function (sc) {
+      (sc.beats || []).forEach(function (b) {
+        if (!b.say) return;
+        const buf = VOICE.map[vkey(b.who, b.say)];
+        if (buf && !b.voiceBuf) { b.voiceBuf = buf; b.voiceDur = buf.duration; n++; }
+      });
+    });
+    return n;
+  }
+
   // ---------- lifecycle ----------
   function onVis() {
     try {
@@ -259,6 +321,7 @@ window.CartoonAudio = (function () {
         master = ctx.createGain(); master.gain.value = muted ? 0 : volume; master.connect(ctx.destination);
         sfxBus = ctx.createGain(); sfxBus.gain.value = MIX.sfx; sfxBus.connect(master);
         ambBus = ctx.createGain(); ambBus.gain.value = MIX.ambience; ambBus.connect(master);
+        spBus = ctx.createGain(); spBus.gain.value = MIX.speech; spBus.connect(master);
         noiseBuf = makeNoise(); silentBuf = makeSilent();
         if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', onVis);
       }
@@ -323,12 +386,20 @@ window.CartoonAudio = (function () {
       scheduleScene(sc.bg, base + sc.start, Math.max(1.2, sc.end - sc.start), i * 1013);
     });
 
-    if (TTS && Utt) {                                  // speech follows the PICTURE clock
+    {                                                  // speech follows the PICTURE clock
       const beats = [];                                // so mouths and voices line up
       tl.scenes.forEach(function (sc) { sc.beats.forEach(function (b) { beats.push(b); }); });
       beats.forEach(function (b) {
-        const delay = Math.max(0, (t0Perf + b.start * 1000) - performance.now());
-        speechTimers.push(setTimeout(function () { speak(b); }, delay));
+        if (b.voiceBuf && spBus) {                     // recorded line: schedule it on
+          const src = ctx.createBufferSource();        // the audio clock at the exact
+          src.buffer = b.voiceBuf;                     // moment its caption opens
+          src.connect(spBus);
+          keep(src);
+          src.start(base + b.start + 0.05);
+        } else if (TTS && Utt) {                       // no clip: built-in voice fallback
+          const delay = Math.max(0, (t0Perf + b.start * 1000) - performance.now());
+          speechTimers.push(setTimeout(function () { speak(b); }, delay));
+        }
       });
     }
     // `base` is the time on the AUDIO clock that corresponds to picture time 0.
@@ -358,8 +429,8 @@ window.CartoonAudio = (function () {
   let tapDest = null;
   function context() { return ctx; }
   // Fan the master bus out to a MediaStream so a recording can capture it.
-  // Note: speechSynthesis does NOT travel through Web Audio, so spoken voices
-  // cannot be captured this way - only the effects and the ambience can.
+  // Effects, ambience AND pre-recorded dialogue all travel through this bus.
+  // (Only the old built-in speechSynthesis fallback stays uncapturable.)
   function tap() {
     if (!ctx || !master || !ctx.createMediaStreamDestination) return null;
     if (!tapDest) { try { tapDest = ctx.createMediaStreamDestination(); master.connect(tapDest); } catch (e) { tapDest = null; } }
@@ -387,5 +458,6 @@ window.CartoonAudio = (function () {
   }
 
   return { unlock, start, stop, setVolume, setMuted, state, supported,
-           context, tap, effects, beds, preview, previewBed, say };
+           context, tap, effects, beds, preview, previewBed, say,
+           loadVoices, stamp, voices: function () { return { ready: VOICE.ready, done: VOICE.done, clips: VOICE.count }; } };
 })();

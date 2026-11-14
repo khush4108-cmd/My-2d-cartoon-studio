@@ -15,7 +15,7 @@ window.WriterFree = (function () {
   // like "into", "past", "caught" and "duck" would be promoted to characters.
   const COMMON = new Set((
     'a about above across after again against all almost along also always am among an and another answer any ' +
-    'anything are around as ask asked asking at away back bad be bear beautiful became because become been before ' +
+    'anything are around as ask asked asking at away back baby bad be bear beautiful became because become been before ' +
     'began begin behind being below beside best better between big bird birds bit blue boat body book both bottle ' +
     'bowl box boy boys branch break bright bring brought brown build built bus busy but buy by call called calling ' +
     'came can cannot cap car careful carried carry cat catch caught cave chair chase chased cheese child children ' +
@@ -35,7 +35,7 @@ window.WriterFree = (function () {
     'laughed lazy leaf learn least leave left leg legs lemon less let letter lick lid lie light like liked line ' +
     'lion list listen little live lived long look looked looking lose lost loud love loved low lunch made magic ' +
     'make man many map market marshmallow may maybe me meadow mean meet melon met middle might mile milk mind mine ' +
-    'minute mirror miss missed mitt moment money monkey month moon morning most mother mouse mouth move moved much ' +
+    'minute mirror miss missed mitt moment mommy money monkey month moon morning most mother mouse mouth move moved much ' +
     'mud music must my nail name near neat neck need never new next nice night nine no noodle nose not nothing now ' +
     'number nut oak of off often oh okay old on once one only open or orange order other our out outside over own ' +
     'pack page paint pair pan pancake pants paper park part party past path peanut pear pen pencil people pet pick ' +
@@ -112,6 +112,7 @@ window.WriterFree = (function () {
   }
   function sfxOf(t) {
     if (/\b(door|knock)\b/i.test(t)) return 'door';
+    if (/\b(splash\w*)\b/i.test(t)) return 'splash';   // before crash: "mud" appears in splashes
     if (/\b(fell|fall|crash|bang|mud)\b/i.test(t)) return 'crash';
     if (/\b(jump|bounce)\b/i.test(t)) return 'boing';
     if (/\b(ran|run|chase|chasing)\b/i.test(t)) return 'whoosh';
@@ -218,13 +219,17 @@ window.WriterFree = (function () {
       d.at = at;                                                 // the token this came from
     };
     for (let j = k + 1; j < Math.min(toks.length, k + 8); j++) { // "Coco the little white rabbit"
-      if (claimed && claimed.has(j)) break;                      // that species is spoken for: stop here
+      if (toks[j].initial) break;                                // never reach FORWARD across a
+      if (claimed && claimed.has(j)) break;                      // sentence boundary either: "said
+                                                                 // Mia. The duck..." is not Mia
       const w = toks[j].lower;
       if (speciesOf(w) || objectOf(w)) { take(w, j); break; }
       if (!note(w)) break;
     }
-    if (!d.species) {                                            // "the little white rabbit Coco"
-      for (let j = k - 1; j >= Math.max(0, k - 6); j--) {
+    if (!d.species && !toks[k].initial) {                          // "the little white rabbit Coco"
+      for (let j = k - 1; j >= Math.max(0, k - 6); j--) {          // never reach back across a
+        if (toks[j + 1] && toks[j + 1].initial) break;             // sentence boundary
+
         if (claimed && claimed.has(j)) break;                    // ...in BOTH directions: it is a wall
         const w = toks[j].lower;
         if (!d.species && (speciesOf(w) || objectOf(w))) { take(w, j); continue; }
@@ -303,7 +308,7 @@ window.WriterFree = (function () {
   // "a wooden house" is a THING the story can put on stage; bare "the house" is
   // scenery. Without this distinction the word house could only ever switch
   // the backdrop, so a story about a wooden house never showed one.
-  const MATERIALS = new Set(['wooden', 'wood', 'brick', 'stone', 'log', 'logs']);
+  const MATERIALS = new Set(['wooden', 'wood', 'brick', 'stone', 'log', 'logs', 'mud', 'muddy', 'sandy', 'snowy']);
   function describedPlace(toks, k) {
     const w0 = toks[k].lower;
     if (w0 !== 'house' && w0 !== 'home') return false;
@@ -339,6 +344,9 @@ window.WriterFree = (function () {
       const t = toks[k];
       if (t.inQuote) continue;
       if (claimed && claimed.has(k)) continue;   // "Coco the rabbit" - that rabbit IS Coco
+      { const cl = toks[k].lower; let ownedTok = false;   // and a bare title-line "Rabbit" is
+        if (claimed) claimed.forEach(q => { if (toks[q].lower === cl) ownedTok = true; });   // the same rabbit, not a new one
+        if (ownedTok) continue; }
       const sp = speciesOf(t.lower), ob = objectOf(t.lower);
       if (!sp && !ob) continue;
       if (SCENERY.has(t.lower) && !describedPlace(toks, k)) continue;
@@ -671,6 +679,29 @@ window.WriterFree = (function () {
     const d = direct(src || say, say, who, m, ON_STAGE);
     const b = { who, say, emotion: emotionOf(say), action: actionOf(say), sfx: sfxOf(say), mentioned: m,
       dir: d.dir, focus: d.beatDir.focus, float: d.beatDir.float };
+    // ---- object interaction: who grabs / throws what, so the renderer can
+    // ---- actually move the prop instead of leaving it on the ground.
+    const src2 = src || say;
+    const V = vocab();
+    const isObj = nm => { const e = ENTITIES.find(q => q.name === nm); return !!(e && e.hint && V.objects[e.hint.species]); };
+    const objs = m.filter(isObj);
+    const actor = m.find(nm => !isObj(nm)) || (who !== 'Narrator' ? who : null);
+    if (objs.length && actor) {
+      if (/\b(pick|picked|lift|lifted|grab|grabbed|scoop|scooped)\b/i.test(src2)) {
+        b.grab = { obj: objs[0], actor: actor };
+        b.dir = Object.assign({}, b.dir);
+        b.dir[actor] = Object.assign({}, b.dir[actor], { move: objs[0] });   // walk up to it
+      } else if (/\b(throw|threw|toss|tossed|fling|flung|drop|dropped|hurl|hurled)\b/i.test(src2)) {
+        const to = m.find(nm => isObj(nm) && /puddle|pond|water|pool|river/i.test(nm)) || null;
+        b.throw = { obj: objs.find(nm => nm !== to) || objs[0], actor: actor, to: to };
+        if (to) { b.dir = Object.assign({}, b.dir);
+          b.dir[actor] = Object.assign({}, b.dir[actor], { move: to }); }   // face the target
+      } else if (/\b(carr\w*|held|hold\w*|keeps?|carried)\b/i.test(src2)) {
+        const mv = m.find(nm => isObj(nm) && /puddle|pond|water|pool/i.test(nm)) || objs[0];
+        b.dir = Object.assign({}, b.dir);
+        b.dir[actor] = Object.assign({}, b.dir[actor], { action: 'carrywalk', move: mv });
+      }
+    }
     m.forEach(n => { if (ON_STAGE.indexOf(n) < 0) ON_STAGE.push(n); });
     if (ON_STAGE.length > 6) ON_STAGE = ON_STAGE.slice(ON_STAGE.length - 6);
     return b;
@@ -696,10 +727,25 @@ window.WriterFree = (function () {
     });
     CAST.forEach(n => {
       const L = n.toLowerCase();
-      let k = allToks.findIndex(t => t.lower === L && (t.caps || t.allcaps));
-      if (k < 0) k = allToks.findIndex(t => t.lower === L);
-      if (k >= 0) { const d = describeFrom(allToks, k, claimed); if (d.species) { HINTS[n] = d; claimed.add(d.at); } }
+      // A title line - "Aarav, Coco and Leo set out" - mentions the name with no
+      // description after it, so keep looking until a line actually describes
+      // somebody: "Coco the little white rabbit" is the line that counts.
+      for (let k = 0; k < allToks.length; k++) {
+        if (allToks[k].lower !== L) continue;
+        const d = describeFrom(allToks, k, claimed);
+        if (d.species) { HINTS[n] = d; claimed.add(d.at); break; }
+      }
     });
+    // A capitalised species word in a title line - "The Little Rabbit, the Boy
+    // and the Friendly Lion" - must not join the cast as a second character when
+    // that species already belongs to a named friend elsewhere in the story.
+    const claimedLow = new Set(); claimed.forEach(k => claimedLow.add(allToks[k].lower));
+    const ownedSpecies = nm => { const L = nm.toLowerCase();
+      return L === 'scene' || (claimedLow.has(L) && !!(speciesOf(L) || objectOf(L))); };
+    if (CAST.some(ownedSpecies)) {
+      CAST = CAST.filter(nm => !ownedSpecies(nm));
+      CAST_SET = new Set(CAST.map(n => n.toLowerCase()));
+    }
     ENTITIES = findEntities(allToks, CAST_SET, claimed);
     ENTITIES.forEach(e => { HINTS[e.name] = e.hint; });
     Object.keys(stated.hints).forEach(nm => { if (!HINTS[nm]) HINTS[nm] = stated.hints[nm]; });

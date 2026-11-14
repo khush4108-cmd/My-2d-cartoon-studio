@@ -38,6 +38,15 @@ window.Acting = {
         P.armR = 1.5; P.tilt += Math.sin(t * 5) * 0.03; break;
       case 'cry': P.brow = 'sad'; P.mouth = 'frown'; P.lookY = 1; P.dy += 6; P.tilt = 0.1;
         P.armL = P.armR = 0.3; P.eyeScale = 0.9; break;
+      // ---- object interaction: pick up, carry, throw. New names only; a
+      // ---- caller that never passes them gets exactly the poses above.
+      case 'pickup': P.dy = 34; P.tuck = 0.5; P.tilt += 0.18; P.lookY = 1;
+        P.armL = P.armR = 1.15; P.sq = 0.03; break;
+      case 'carry': P.armL = P.armR = 1.25; P.dy += 2; P.tilt += 0.04; break;
+      case 'carrywalk': P.step = t * 8; P.stepAmp = 1; P.armL = P.armR = 1.25;
+        P.dy -= Math.abs(Math.sin(P.step)) * 6; break;
+      case 'throw': P.armR = 2.5 + Math.sin(t * 14) * 0.5; P.armL = 0.5;
+        P.tilt -= 0.06; P.lookY = -0.5; break;
     }
     // ---- where this character is looking, and whether they are listening ----
     // Optional. A caller that passes neither gets the pose computed above,

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Video + Sound Export Test — My 2D Cartoon Studio</title>
-<link rel="stylesheet" href="css/style.css?v=12">
+<link rel="stylesheet" href="css/style.css?v=16">
 <script>
   // Same on-screen error reporter as index.html, so nothing fails silently.
   window.showError = function (msg) {
@@ -73,6 +73,7 @@
     <h2>3. Record the cartoon to a video file</h2>
     <label for="story">Story to record</label>
     <textarea id="story" style="height:110px">Mia ran into the park. "Oh no, it is chasing us!" shouted Leo. Leo fell into the mud.</textarea>
+    <button id="loadBunty" type="button">🎬 Load the Bunty movie story</button>
     <div class="btns">
       <button type="button" id="recBtn" class="go">Record cartoon</button>
       <button type="button" id="stopBtn">Stop early</button>
@@ -98,15 +99,15 @@
   </div>
 </main>
 
-<script src="js/script-format.js?v=12"></script>
-<script src="js/writer-free.js?v=12"></script>
-<script src="js/art-paths.js?v=12"></script>
-<script src="js/art-rig.js?v=12"></script>
-<script src="js/characters.js?v=12"></script>
-<script src="js/acting.js?v=12"></script>
-<script src="js/scenes.js?v=12"></script>
-<script src="js/renderer.js?v=12"></script>
-<script src="js/audio.js?v=12"></script>
+<script src="js/script-format.js?v=16"></script>
+<script src="js/writer-free.js?v=16"></script>
+<script src="js/art-paths.js?v=16"></script>
+<script src="js/art-rig.js?v=16"></script>
+<script src="js/characters.js?v=16"></script>
+<script src="js/acting.js?v=16"></script>
+<script src="js/scenes.js?v=16"></script>
+<script src="js/renderer.js?v=16"></script>
+<script src="js/audio.js?v=16"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -359,6 +360,21 @@
     var problems = ScriptFormat.validate(script);
     if (problems.length) return fail(problems.join(' '));
 
+    // Recorded dialogue: unlock the audio inside THIS click (iOS needs the
+    // gesture), then make sure the voice clips are decoded before the timeline
+    // is built. If they are still on their way, wait and re-run once.
+    if (window.CartoonAudio && CartoonAudio.unlock) CartoonAudio.unlock();
+    if (window.CartoonAudio && CartoonAudio.loadVoices && CartoonAudio.voices && !CartoonAudio.voices().done) {
+      log('loading recorded voices…');
+      return CartoonAudio.loadVoices('voices/bunty/manifest.json').catch(function () {}).then(function () { $('recBtn').click(); });
+    }
+    var said = 0, unvoiced = 0;
+    if (window.CartoonAudio && CartoonAudio.stamp) {
+      var n = CartoonAudio.stamp(script);
+      if (n) log('recorded dialogue attached to ' + n + ' lines');
+    }
+    script.scenes.forEach(function (sc) { sc.beats.forEach(function (b) { if (b.say) { said++; if (!b.voiceBuf) unvoiced++; } }); });
+
     if (!canVideo) {
       return fail('This browser cannot record video. See section 1 for exactly what is missing.');
     }
@@ -406,7 +422,10 @@
         // recording without dialogue can never be mistaken for a finished one.
         var inside = mixed
           ? 'picture ✅ · sound effects ✅ · scene ambience ✅ · ' +
-            '<b>spoken dialogue ❌ — the browser cannot record <code>speechSynthesis</code></b>'
+            (said && !unvoiced
+              ? '<b>spoken dialogue ✅ (recorded voices)</b>'
+              : 'spoken dialogue ' + (said - unvoiced) + '/' + said +
+                ' lines recorded ✅ — <b>' + unvoiced + ' line(s) fall back to the built-in voice, which the browser cannot record ❌</b>')
           : 'picture ✅ · <b>no audio at all ❌</b>';
         $('dl').innerHTML = 'Recorded ' + (blob.size / 1048576).toFixed(2) + ' MB — ' +
           '<a href="' + url + '" download="' + name + '">Download ' + name + '</a>' +
@@ -461,6 +480,41 @@
   });
 
   if (window.Renderer && window.Scenes) Scenes.draw(ctx2d, 'park', 0);
+  // One tap fills the box with the first full movie, so nobody has to
+  // copy-paste a story on an iPad.
+  var BUNTY = [
+    'scene: park',
+    'Bunty the boy walked happily through his sunny garden.',
+    'Chickie the tiny baby chick cried under the rose bush.',
+    'Chickie: Help! Where is my mommy?',
+    'Bunty: Oh! Hello, little one. Why are you crying?',
+    'Chickie: I cannot find my mommy. I am lost!',
+    'Bunty: Do not worry. I will help you find her.',
+    'scene: park',
+    'Bunty gently looked around the garden. He checked behind the bushes and under the trees.',
+    'Bunty: Do you remember where you last saw your mommy?',
+    'Chickie: We were near the big tree. Then the wind blew, and I fell down.',
+    'Bunty: Then let us go to the big tree together!',
+    'Chickie: I am scared.',
+    'Bunty: Stay close to me. Everything will be okay.',
+    'scene: park',
+    'Bunty and Chickie reached the big tree. Suddenly they heard a loud chirping sound from above.',
+    'Chickie: Look! My mommy! I am here!',
+    'Mimi the big blue bird flew down joyfully and landed beside her baby.',
+    'Bunty: Your little one is safe with you now!',
+    'Chickie: I missed you so much!',
+    'Mimi lovingly hugged her little baby with her wings.',
+    'scene: park',
+    'Chickie: Thank you, Bunty! You are my best friend!',
+    'Bunty: You are welcome! Friends always help each other.',
+    'Mimi and her baby returned safely to their nest. Bunty walked home feeling happy.',
+    'Bunty: What a wonderful day! It feels so good to help someone!',
+    'And from that day, Bunty and Chickie became special friends.'
+  ].join('\n');
+  var lb = $('loadBunty'); if (lb) lb.addEventListener('click', function () { $('story').value = BUNTY; log('Bunty story loaded - press Record when ready'); });
+  // Warm the recorded voice clips in the background, so pressing Record never
+  // has to wait for them (and iOS keeps its unlock gesture for the button).
+  if (window.CartoonAudio && CartoonAudio.loadVoices) CartoonAudio.loadVoices('voices/bunty/manifest.json');
   log('test page ready');
 })();
 </script>
