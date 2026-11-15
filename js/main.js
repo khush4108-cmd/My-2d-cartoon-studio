@@ -120,6 +120,10 @@
   function showScript(script) {
     let html = '<p><b>' + esc(script.title) + '…</b> Characters: ' +
       (script.characters.map(c => esc(c.name)).join(', ') || 'only a narrator') + '</p>';
+    // props share the stage but are not characters: show them on their own line
+    if ((script.props || []).length) {
+      html += '<p>Props: ' + script.props.map(p => esc(p.name)).join(', ') + '</p>';
+    }
     script.scenes.forEach((sc, i) => {
       html += '<div class="scene"><h2>Scene ' + (i + 1) + ': ' + esc(sc.bg) + '</h2>';
       sc.beats.forEach(b => {

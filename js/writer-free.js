@@ -86,7 +86,25 @@ window.WriterFree = (function () {
     // Carrot on the stage. (Missing just `carrot` here is what caused that bug.)
     'bee dragon unicorn hare kitties puppies butterflies rabbits squirrels bears cats dogs frogs bees owls mice ' +
     'lions tigers horses dragons unicorns turtles fishes pigs elephants monkeys penguins wolves snails carrot ' +
-    'apple candy cream black tan ginger golden gold navy purple violet grey silver spotted striped'
+    'apple candy cream black tan ginger golden gold navy purple violet grey silver spotted striped ' +
+    // everyday manner adverbs and descriptive words. Natural prose is full of
+    // them ("she picked it up carefully", "a lovely afternoon") and without
+    // them the cast detector promoted HAPPILY and LOVELY to people.
+    'happily lovely carefully quickly slowly loudly softly gently suddenly finally excitedly nervously proudly ' +
+    'cheerfully eagerly calmly wildly merrily joyfully hungrily curiously politely quietly bravely shyly sadly ' +
+    'angrily sleepily sneakily swiftly instantly immediately already sometimes meanwhile afterward afterwards ' +
+    'eventually truly dearly firmly tightly perfectly sweetly goodbye bench while afternoon evening someday ' +
+    'once upon maybe perhaps also still yet almost enough rather quite such own same different another other' +
+    // Added after the forest-story diagnosis: scenery words, prop words and
+    // everyday verbs must never be promoted to cast members. "Towards the
+    // bushes" minted a person called Towards; "the treasure" repeated twice
+    // minted Treasure; "nuts" minted Nuts. An ordinary word may still be a
+    // name, but only beside a speaking verb or an article, never by repeating.
+    ' towards bush bushes treasure treasures nut nuts trunk trunks cave caves cliff cliffs ' +
+    'gave give gives hand hands handed share shares sharing shared pass passes passed ' +
+    'offer offers offered climb climbs climbing climbed approach approaches approached ' +
+    'approaching hide hides hiding hold holds holding held keep keeps keeping kept ' +
+    'smile smiles smiled grin grins beam beams beamed '
   ).trim().split(/\s+/));
 
   // Words that are never a character name, however strong the evidence looks.
@@ -99,10 +117,16 @@ window.WriterFree = (function () {
   const PURE_SPEECH = 'said|asked|replied|whispered|called|answered|muttered|told|added';
   const ANY_SPEECH = PURE_SPEECH + '|shouted|laughed|cried|yelled|giggled|screamed|gasped';
   const ARTICLES = new Set('the a an'.split(' '));
+  // "his nuts", "her apple": a possessive points at a thing just as well as
+  // an article does, and small edibles recur without any article at all
+  // ("Bruno ate nuts"), which is exactly when they must be pickable props.
+  const POSSESS = new Set('my his her their its our your'.split(' '));
+  const BARE_PLURAL = new Set('nuts nut apples cookies crackers'.split(' '));
 
   function emotionOf(t) {
     if (/\b(help|run|monster|scary|ghost|oh no|chasing)\b/i.test(t)) return 'scared';
     if (/\b(ha ?ha|funny|joke|laugh|lol)\b/i.test(t)) return 'happy';
+    if (/\b(joy|delighted?|happy|glad|cheer|hooray|yay)\b/i.test(t)) return 'happy';
     if (/\b(sad|cry|sorry|miss)\b/i.test(t)) return 'sad';
     if (/\b(angry|mad|grr|stop it)\b/i.test(t)) return 'angry';
     if (/\b(wow|amazing|whoa|giant|incredible)\b/i.test(t)) return 'surprised';
@@ -169,6 +193,55 @@ window.WriterFree = (function () {
     return null;
   }
 
+  // ---------- prose scene cues ---------------------------------------------
+  // In a plain story a place word can appear anywhere ("they walked home"),
+  // and only a real SETTING phrase may change the backdrop: something that
+  // opens the sentence like "That night...", "Inside the house...", "At the
+  // beach...". Everything else keeps the current scene.
+  function settingCue(s) {
+    const head = String(s || '').replace(/["“][^"”]*["”]/g, '').trim().toLowerCase();
+    const opensWithSetting =
+      /^(that|the next|next|later that|one|this|the same|a|an|early)\s+([a-z]+\s+){0,2}(night|evening|morning|day|afternoon|week)\b/.test(head) ||
+      /^(inside|in|at|back at|back in|later|after a while|soon|then at|then in)\b/.test(head) ||
+      /^(inside|in|at)\s+(the\s+|a\s+|an\s+|my\s+|his\s+|her\s+|their\s+)?(house|home|kitchen|bedroom|living room|beach|park|playground|school|classroom|forest|garden|snow)\b/.test(head) ||
+      // being somewhere IS a scene ("Leo was in the kitchen", "they lived in a
+      // wooden house") - moving somewhere is not ("Aarav walked home")
+      /\b(was|were|is|are|am|stayed|lived|waited|waiting|stood|stands?|sat|sits|sleeps|slept)\s+(in|at|inside|by|near)\b/.test(head);
+    if (!opensWithSetting) return null;
+    return placeOf(stripDescribedHouse(head));   // "lived in a WOODEN house" is a shown house, not a room
+  }
+
+  // ---------- prose compound actions ---------------------------------------
+  // "Mia ate the apple and jumped with joy." is ONE sentence but TWO things
+  // that happen. Split it so both actions get stage time instead of the first
+  // swallowing the second. Only for plain narration: never a quoted line, only
+  // when both halves really contain a doing-word, and the second half always
+  // inherits the first half's subject so "she/he" or a bare verb still plays.
+  const EXTRA_DO = /\b(ate|found|find|held|hold|threw|throw|ran|came|went|got|give|gave|took|take|picked|pick|looked|look|shouted|shout|said|yelled|asked|answered|walked|smiled|clapped|laughed|sing|sang|played|play|help|helped|hug|kiss|push|pull|open|close|drink|drank|cook|plant|water|clean|paint|read|write|climb|climbed|search|searched)\b/i;
+  function hasDo(t) {
+    for (let i = 0; i < ACTIONS.length; i++) if (ACTIONS[i][0].test(t)) return true;
+    return EXTRA_DO.test(t);
+  }
+  function splitCompound(s, fb) {
+    if (/["“”]/.test(s)) return null;                    // never split dialogue
+    const m = s.match(/^(.{4,}?)\s+and\s+(?:then\s+)?(.{3,}?)[.!?]?$/i);
+    if (!m) return null;
+    let L = m[1].trim(), R = m[2].trim();
+    if (!hasDo(L) || !hasDo(R)) return null;
+    const subj = namesIn(L)[0] || fb || null;
+    if (/^(he|she|they|it)\b/i.test(R)) {
+      if (!subj) return null;
+      R = R.replace(/^(he|she|they|it)\b/i, subj);
+    } else if (/^[a-z]/.test(R)) {                       // "...and picked it up."
+      if (!subj) return null;
+      R = subj + ' ' + R;
+    }
+    L = L.replace(/[,;]$/, '') + '.';
+    R = R.charAt(0).toUpperCase() + R.slice(1);
+    if (!/[.!?]$/.test(R)) R += '.';
+    return [L, R];
+  }
+
   // ---------- what KIND of thing is this? ---------------------------------
   // The species, object and colour vocabularies live in characters.js, because
   // that is the file that has to draw them. Reading them from there means the
@@ -223,6 +296,11 @@ window.WriterFree = (function () {
       if (claimed && claimed.has(j)) break;                      // sentence boundary either: "said
                                                                  // Mia. The duck..." is not Mia
       const w = toks[j].lower;
+      // "Leo gave Mia a shiny red apple" - an indefinite noun phrase straight
+      // after the name, with no comma, is the THING being handed over, not a
+      // description of the person. Appositives ("Mia, a brave girl,") arrive
+      // with a comma; species ("Coco the rabbit") arrive with "the".
+      if (j === k + 1 && (w === 'a' || w === 'an') && !toks[j].commaBefore) break;
       if (speciesOf(w) || objectOf(w)) { take(w, j); break; }
       if (!note(w)) break;
     }
@@ -358,13 +436,14 @@ window.WriterFree = (function () {
       const h = { kind: sp ? 'animal' : 'object', species: sp || ob, colour: null, size: 1, magic: false, at: k };
       while (j >= 0 && hops++ < 4) {                             // and only "a/an/the" makes it a thing
         const w = toks[j].lower;
-        if (ARTICLES.has(w)) { article = true; break; }
+        if (ARTICLES.has(w) || POSSESS.has(w)) { article = true; break; }
         if (isColour(w)) { if (!h.colour) h.colour = w; j--; continue; }
         if (MAGIC.has(w)) { h.magic = true; j--; continue; }
         if (SIZES[w]) { if (h.size === 1) h.size = SIZES[w]; j--; continue; }
         if (MODIFIERS.has(w) || MATERIALS.has(w)) { j--; continue; }   // "a WOODEN house"
         break;
       }
+      if (!article && ob && BARE_PLURAL.has(t.lower)) article = true;   // "ate nuts"
       if (!article) continue;
       const name = title(h.species);
       if (known.has(name.toLowerCase()) || seen.has(name)) continue;
@@ -378,7 +457,7 @@ window.WriterFree = (function () {
   // Split the text into words, remembering for each one how it is capitalised,
   // whether it opens a sentence, and whether it sits inside "quotes".
   function tokens(text) {
-    const out = [], re = /[A-Za-z][A-Za-z']*/g;
+    const out = [], re = /[A-Za-z][A-Za-z'’‘]*/g;
     // Quote state has to be SCANNED, not regexed. A straight " serves as both
     // the opening and the closing quote, so a pattern like /["“][^”]*$/ reads a
     // closing quote as an opening one and marks the words AFTER the quote as
@@ -430,11 +509,20 @@ window.WriterFree = (function () {
   function detectCast(text) {
     const toks = tokens(text);
     const count = {};
-    toks.forEach(t => { count[t.lower] = (count[t.lower] || 0) + 1; });
+    const capsSeen = {};
+    toks.forEach(t => {
+      count[t.lower] = (count[t.lower] || 0) + 1;
+      if (t.caps || t.allcaps) capsSeen[t.lower] = true;
+    });
     const surface = {}, order = [];
     toks.forEach((t, k) => {
       const L = t.lower;
       if (NEVER.has(L)) return;
+      // A contraction is grammar, not a name. "Don’t" (typographic apostrophe)
+      // tokenises as one word now; without this skip a story saying "Don’t"
+      // twice would still cast the whole contraction as a person, and with a
+      // straight apostrophe it used to cast "Don" AND "T" separately.
+      if (/['’‘](t|s|ll|ve|re|d|m|nt)$/.test(L)) return;
       const prevT = k > 0 ? toks[k - 1] : null;
       const nextT = k + 1 < toks.length ? toks[k + 1] : null;
       const next2 = k + 2 < toks.length ? toks[k + 2] : null;
@@ -452,7 +540,10 @@ window.WriterFree = (function () {
       // the quotation marks as the word. Otherwise the "said" in
       // `"Wow!" said Max` would be read as evidence about "Wow".
       const sameSide = o => !!o && o.inQuote === t.inQuote;
-      const byVerb = (sameSide(prevT) && SPEECH.has(prevT.lower)) ||
+      // "said Coco" - the speaker in a tag is always capitalised. Without this,
+      // the adverb in "Mia shouted happily." read as a speaker and HAPPILY
+      // joined the cast as a person.
+      const byVerb = (sameSide(prevT) && SPEECH.has(prevT.lower) && (t.caps || t.allcaps)) ||
         (sameSide(nextT) && SPEECH.has(nextT.lower) && (!t.initial || count[L] >= 2));
       const nextL = nextT ? nextT.lower : '';
       // "Coco the rabbit". Capitalisation is required here: without it the same
@@ -461,7 +552,13 @@ window.WriterFree = (function () {
       const byAppositive = capitalised && !ordinary && ARTICLES.has(nextL) && !!next2 && !NEVER.has(next2.lower);
       const byVocative = t.inQuote && capitalised && (t.commaBefore || t.bangAfter);
       const strong = byVerb || byAppositive || byVocative;
-      const repeated = count[L] >= 2;
+      // "a lovely afternoon ... a lovely apple" repeated an ordinary adjective
+      // into the cast, and "a shiny red apple ... the shiny red apple" did the
+      // same with a magic word. A lowercase -ly word, colour, size or magic
+      // word is a description, not a name, so it may never join by repetition
+      // alone (a capitalised Lily - or Shiny the pony - still can).
+      const repeated = count[L] >= 2 &&
+        !((/ly$/.test(L) || MAGIC.has(L) || isColour(L) || SIZES[L]) && !capsSeen[L]);
 
       if (ordinary) {
         // an ordinary word may still be somebody's name - "Then Will said…", or
@@ -530,6 +627,19 @@ window.WriterFree = (function () {
     [/\b(sits?|sitting|sat|crouch(?:es|ed|ing)|hid(?:e|es|ing)|hid|huddle[ds]?)\b/i, 'sit'],
     [/\b(eats?|eating|ate|munch(?:es|ed|ing)|nibbl(?:e|es|ed|ing)|bit(?:e|es|ing)|bit|taste[ds]?)\b/i, 'eat'],
     [/\b(cri(?:es|ed)|crying|cry|weep(?:s|ing)?|wept|sob(?:s|bed|bing)|tears)\b/i, 'cry'],
+    // ---- everyday story verbs, added after the forest-story diagnosis ----
+    // "Tinku climbed the tree" used to leave Tinku standing: the table had no
+    // verb for it. Climb is a real pose now (see Acting), not a jump synonym.
+    [/\b(climb(?:s|ed|ing)?|clamber(?:s|ed|ing)?|scrambl(?:e|es|ed|ing)|scal(?:e|es|ed|ing) up)\b/i, 'climb'],
+    // "Coco reached up" - arm stretched for something above the head.
+    [/\b(reach(?:es|ed|ing)?|stretch(?:es|ed|ing)? up)\b/i, 'reach'],
+    // "Coco approached the bushes" is covering ground: it is a walk with intent.
+    [/\b(approach(?:es|ed|ing)?|move[sd]? closer|come?s? closer|head(?:s|ed|ing)? (?:to|towards|toward))\b/i, 'walk'],
+    // "Leo gave the apple to Mimi" - the hand-over reuses grab+throw, and the
+    // receiver gets a visible catch (beat() wires the throw and the catch).
+    [/\b(give[s]?|gave|hand(?:s|ed|ing)?|share(?:s|d|ing)?|pass(?:es|ed|ing)?|offer(?:s|ed|ing)?)\b/i, 'give'],
+    // "Mimi held the apple" - holding is carrying while standing still.
+    [/\b(hold(?:s|ing)?|held|keep(?:s|ing)?|kept|cling(?:s|ing)?|clung|carry|carries|carried)\b/i, 'carry'],
     [/\b(laugh(?:s|ed|ing)?|giggl(?:e|es|ed|ing)|chuckl(?:e|es|ed|ing)|ha ?ha)\b/i, 'laugh']
   ];
   // "Coco looked at Max", "Max watched her", "they stared at the carrot"
@@ -645,6 +755,12 @@ window.WriterFree = (function () {
       if (d.action === 'run' || d.action === 'walk') {
         const tgt = (lookTgt && lookTgt !== n) ? lookTgt : (beatDir.focus && beatDir.focus !== n ? beatDir.focus : null);
         if (tgt) d.move = tgt;
+        // "walked TO the apple tree": covering ground towards a THING is the
+        // same entrance read - without it the walker treadmills in one spot.
+        if (!d.move && /\b(to|towards|toward)\b/i.test(text)) {
+          const ot = things.find(q => ord[q] !== undefined && q !== n);
+          if (ot) d.move = ot;
+        }
       }
       // WHERE THEY LOOK is decided separately from HOW THEY FEEL, because a
       // speaker looks at things too: Coco says "Look at this carrot!" while
@@ -674,6 +790,8 @@ window.WriterFree = (function () {
   // `recent` is who was already on stage, so "Both friends jumped" and
   // "Max watched her" know who they are talking about.
   let ON_STAGE = [];
+  let LAST_PROP = null;   // the prop the story is holding right now, so "picked it up" knows what "it" is
+  let HELD_PROP = null, HELD_WHO = null;   // what is in a paw right now, and whose paw
   function beat(who, say, mentioned, src) {
     const m = (mentioned || []).slice();
     const d = direct(src || say, say, who, m, ON_STAGE);
@@ -682,21 +800,58 @@ window.WriterFree = (function () {
     // ---- object interaction: who grabs / throws what, so the renderer can
     // ---- actually move the prop instead of leaving it on the ground.
     const src2 = src || say;
+    // Verb tests run on the NARRATION part of the line only, with negations
+    // removed. `"Don’t drop the apple," said Bruno` is a warning inside a
+    // quote: nobody drops anything, so it must not throw the prop.
+    const srcV = src2.replace(/["“][^"”]*["”]/g, ' ')
+      .replace(/\b(?:don'?t|do not|does not|didn'?t|not|never|without)\s+[a-z'’]+/gi, ' ');
     const V = vocab();
     const isObj = nm => { const e = ENTITIES.find(q => q.name === nm); return !!(e && e.hint && V.objects[e.hint.species]); };
-    const objs = m.filter(isObj);
+    let objs = m.filter(isObj);
+    // "Mia picked it up." - the story already told us what "it" is: the prop
+    // from the line before. Pronouns are not invisible, they are references.
+    if (!objs.length && LAST_PROP && /\b(it|them|this|that|one)\b/i.test(src2) && isObj(LAST_PROP)) {
+      objs = [LAST_PROP];
+      if (m.indexOf(LAST_PROP) < 0) m.push(LAST_PROP);
+    }
+    if (objs.length) LAST_PROP = objs[0];
     const actor = m.find(nm => !isObj(nm)) || (who !== 'Narrator' ? who : null);
     if (objs.length && actor) {
-      if (/\b(pick|picked|lift|lifted|grab|grabbed|scoop|scooped)\b/i.test(src2)) {
+      const THROWV = /\b(throw|threw|toss|tossed|fling|flung|drop|dropped|hurl|hurled)\b/i.test(srcV);
+      // "Leo gave the apple to Mimi", "Bruno shared his nuts with the bird":
+      // a hand-over is the giver's grab plus a throw to the receiver, and the
+      // receiver gets a visible catch pose (Acting 'catch'), so giving reuses
+      // the proven grab/throw machinery instead of inventing a third one.
+      const GIVEV = /\b(give[s]?|gave|hand(?:s|ed|ing)?|share(?:s|d|ing)?|pass(?:es|ed|ing)?|offer(?:s|ed|ing)?)\b/i.test(srcV);
+      const toNm = GIVEV ? (m.find(nm => nm !== actor && !isObj(nm) &&
+        new RegExp('\\b(?:to|with)\\s+(?:the\\s+|a\\s+|an\\s+|his\\s+|her\\s+|their\\s+)?' +
+          nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(src2)) || null) : null;
+      // Nobody can pick up a prop that is already riding in somebody else's
+      // paw: "Good find, Aarav!" must not steal the apple from his hand.
+      const steal = HELD_PROP && HELD_PROP === objs[0] && HELD_WHO !== actor;
+      if (!THROWV && GIVEV && toNm && !steal) {
         b.grab = { obj: objs[0], actor: actor };
+        b.throw = { obj: objs[0], actor: actor, to: toNm };
+        b.dir = Object.assign({}, b.dir);
+        b.dir[actor] = Object.assign({}, b.dir[actor], { action: 'give' });
+        b.dir[toNm] = Object.assign({}, b.dir[toNm], { action: 'catch', look: actor, listen: false });
+        HELD_PROP = null; HELD_WHO = null;              // it changed hands within this beat
+      } else if (!THROWV && !steal && /\b(pick|picked|lift|lifted|grab|grabbed|scoop|scooped|took|take|takes|gave|give|gives|given|handed|passed|found|discover(?:s|ed|ing)?|caught|catch|catches|catching|ate|eat|eats|eating|munch(?:es|ed|ing)?|nibbl(?:e|es|ed|ing)?)\b/i.test(srcV)) {
+        b.grab = { obj: objs[0], actor: actor };
+        // "picked the red apple FROM THE TREE": the prop starts up in the
+        // canopy and the renderer lifts it down into the paw, instead of
+        // waiting on the ground like a dropped ball.
+        if (/\b(from|in|on) the (tree|trees|branches|branch|canopy)|up in the\b/i.test(srcV)) b.grab.fromUp = true;
+        HELD_PROP = objs[0]; HELD_WHO = actor;
         b.dir = Object.assign({}, b.dir);
         b.dir[actor] = Object.assign({}, b.dir[actor], { move: objs[0] });   // walk up to it
-      } else if (/\b(throw|threw|toss|tossed|fling|flung|drop|dropped|hurl|hurled)\b/i.test(src2)) {
+      } else if (THROWV) {
         const to = m.find(nm => isObj(nm) && /puddle|pond|water|pool|river/i.test(nm)) || null;
         b.throw = { obj: objs.find(nm => nm !== to) || objs[0], actor: actor, to: to };
+        if (b.throw.obj === HELD_PROP) { HELD_PROP = null; HELD_WHO = null; }
         if (to) { b.dir = Object.assign({}, b.dir);
           b.dir[actor] = Object.assign({}, b.dir[actor], { move: to }); }   // face the target
-      } else if (/\b(carr\w*|held|hold\w*|keeps?|carried)\b/i.test(src2)) {
+      } else if (!steal && /\b(carr\w*|held|hold\w*|keeps?|carried)\b/i.test(srcV)) {
         const mv = m.find(nm => isObj(nm) && /puddle|pond|water|pool/i.test(nm)) || objs[0];
         b.dir = Object.assign({}, b.dir);
         b.dir[actor] = Object.assign({}, b.dir[actor], { action: 'carrywalk', move: mv });
@@ -708,7 +863,7 @@ window.WriterFree = (function () {
   }
 
   function write(text) {
-    ON_STAGE = [];
+    ON_STAGE = []; LAST_PROP = null; HELD_PROP = null; HELD_WHO = null;
     CAST = detectCast(text);                    // who is in this story, decided once
     CAST_SET = new Set(CAST.map(c => c.toLowerCase()));
 
@@ -732,6 +887,12 @@ window.WriterFree = (function () {
       // somebody: "Coco the little white rabbit" is the line that counts.
       for (let k = 0; k < allToks.length; k++) {
         if (allToks[k].lower !== L) continue;
+        // A word with an article or adjective directly in front of it sits
+        // INSIDE a noun phrase ("what a lovely apple") - it is a modifier, not
+        // a name being described. Letting such a word claim the noun after it
+        // is what made a phantom "Lovely" swallow the story's apple prop.
+        const pv = k > 0 ? allToks[k - 1].lower : '';
+        if (ARTICLES.has(pv) || MODIFIERS.has(pv) || isColour(pv) || SIZES[pv] || MAGIC.has(pv)) continue;
         const d = describeFrom(allToks, k, claimed);
         if (d.species) { HINTS[n] = d; claimed.add(d.at); break; }
       }
@@ -749,6 +910,30 @@ window.WriterFree = (function () {
     ENTITIES = findEntities(allToks, CAST_SET, claimed);
     ENTITIES.forEach(e => { HINTS[e.name] = e.hint; });
     Object.keys(stated.hints).forEach(nm => { if (!HINTS[nm]) HINTS[nm] = stated.hints[nm]; });
+    // Pronoun speakers: '"Wow!" he said.' points at the most recent matching
+    // character instead of silently re-using the previous speaker.
+    const GWORD = { boy: 'm', man: 'm', brother: 'm', prince: 'm', king: 'm',
+      girl: 'f', woman: 'f', sister: 'f', princess: 'f', queen: 'f' };
+    const GENDER = {};
+    for (let k = 0; k + 2 < allToks.length; k++) {
+      const t0 = allToks[k];
+      if (!(t0.caps || t0.allcaps) || !CAST_SET.has(t0.lower)) continue;
+      if (allToks[k + 1].lower !== 'the') continue;
+      const g = GWORD[allToks[k + 2].lower];
+      if (g && !GENDER[canon(t0.w)]) GENDER[canon(t0.w)] = g;
+    }
+    const recentNames = [];
+    const noteRecent = list => list.forEach(nm => {
+      if (nm && nm !== 'Narrator' && !PROPS.has(nm) && recentNames[recentNames.length - 1] !== nm) recentNames.push(nm);
+    });
+    const pronounName = pro => {
+      if (pro === 'they') return null;
+      const g = pro === 'he' ? 'm' : 'f';
+      for (let i = recentNames.length - 1; i >= 0; i--) if (GENDER[recentNames[i]] === g) return recentNames[i];
+      // No gender was ever stated for anybody: the most recent name is the
+      // only sane reading of "he/she".
+      return recentNames.length ? recentNames[recentNames.length - 1] : null;
+    };
     // A PROP is something the story mentions in passing - "a tiny yellow
     // butterfly flew past". A CAST member is somebody the story names. The
     // renderer lets props leave the stage once the story has moved on, but a
@@ -759,8 +944,20 @@ window.WriterFree = (function () {
     const scenes = [];
     let cur = null;
     const startScene = bg => { cur = { bg, beats: [] }; scenes.push(cur); };
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const chatty = lines.some(l => /^[^:"]{1,20}:\s*\S/.test(l));
+    let lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    // "Scene 1: Tinku ran." is a HEADING, not a speaker. Split it into a scene
+    // marker plus its sentence BEFORE anything else looks at colons, so a
+    // heading can never become a character and can never flip a whole prose
+    // story into "Name: words" mode (which used to strip every action owner).
+    lines = lines.reduce((acc, l) => {
+      const hm = l.match(/^scene\s*([0-9]+|[a-z]+)\s*:\s*(.*)$/i);
+      if (!hm) { acc.push(l); return acc; }
+      acc.push('scene: ' + hm[1].toLowerCase());
+      if (hm[2].trim()) acc.push(hm[2].trim());
+      return acc;
+    }, []);
+    text = lines.join('\n');
+    const chatty = lines.some(l => !/^scene:/i.test(l) && /^[^:"]{1,20}:\s*\S/.test(l));
 
     if (chatty) {                                   // "Name: words" format
       for (const l of lines) {
@@ -773,21 +970,48 @@ window.WriterFree = (function () {
         cur.beats.push(beat(raw === 'Narrator' ? 'Narrator' : canon(raw), m ? m[2].trim() : l, said, l));
       }
     } else {                                        // normal story sentences
-      const sentences = splitSentences(text);
+      const queue = splitSentences(text);
       let last = null, prev = null, lastQuote = null;
-      for (const s of sentences) {
-        const p = placeOf(stripDescribedHouse(s.replace(/["“][^"”]*["”]/g, '')));
+      for (let qi = 0; qi < queue.length; qi++) {
+        const s = queue[qi];
+        const sm = s.match(/^\s*scene:\s*(\w+)\s*(.*)$/i);
+        if (sm) {
+          startScene(sm[1].toLowerCase());
+          // a heading converted from "Scene 1: Tinku ran." arrives glued to its
+          // sentence (sentences split on punctuation, not newlines): re-queue
+          // the remainder or the first line of every scene would be swallowed.
+          if (sm[2] && sm[2].trim()) { queue.splice(qi, 1, sm[2].trim()); qi--; }
+          continue;
+        }
+        const p = settingCue(s);
         if (p && (!cur || p !== cur.bg)) startScene(p);
         if (!cur) startScene('park');
         const S = s.trim();
+        // "She took it and threw it back to him." - resolve the subject
+        // pronoun first so the split halves keep their actor: "She took it."
+        // then "Mia threw it back to him.", grab beat and throw beat.
+        const leadPro = !namesIn(S).length && S.match(/^\s*(?:then\s+|and\s+)?(he|she)\b/i);
+        const leadName = leadPro ? pronounName(leadPro[1].toLowerCase()) : null;
+        const halves = splitCompound(S, leadName);
+        if (halves) { queue.splice(qi, 1, halves[0], halves[1]); qi--; continue; }
         // "…" said Mia.  The sentence after a quote may be the tag naming the
         // speaker - but only when it cannot stand alone as a new action.
         // "said Mia" and "Mia said" are tags; "Max laughed." is a sentence of
         // its own and used to steal the previous quote's speaker.
         const tagVerbFirst = new RegExp('^(' + ANY_SPEECH + ')\\b', 'i').test(S);
-        const tagNameFirst = new RegExp("^[A-Za-z][A-Za-z']*\\s+(" + PURE_SPEECH + ')\\b', 'i').test(S);
+        // A manner tag ("Mia shouted happily.") belongs to the quote before it.
+        // Full-match only, so a real action sentence ("Max laughed at the
+        // duck.") still stands on its own. Safe because any sentence in
+        // between already clears lastQuote.
+        const tagNameFirst = new RegExp("^[A-Za-z][A-Za-z']*\\s+(" + ANY_SPEECH + ")(\\s+[a-zA-Z]+ly)?[.!?]?$", 'i').test(S);
         if (lastQuote && (tagVerbFirst || tagNameFirst) && !/["\u201c]/.test(s)) {
-          const nm = namesIn(s)[0];
+          let nm = namesIn(s)[0];
+          // "she said." / "he asked." - the tag names nobody, but a pronoun
+          // is still an answer: the quote belongs to whoever it points at.
+          if (!nm) {
+            const tp = s.match(/\b(he|she)\b/i);
+            if (tp) nm = pronounName(tp[1].toLowerCase()) || null;
+          }
           if (nm) {
             lastQuote.who = nm; prev = last; last = nm;
             // Sentences are split AFTER a closing quote, so `"Look!" said Coco`
@@ -802,9 +1026,15 @@ window.WriterFree = (function () {
         const q = s.match(/["\u201c]([^"\u201d]+)["\u201d]/);
         const outside = s.replace(/["\u201c][^"\u201d]*["\u201d]/g, '');
         const names = namesIn(outside);      // who is speaking: only names OUTSIDE the quote
-        const present = namesIn(s).concat(entitiesIn(s));   // who appears at all, including inside "Look, Leo!"
+        let present = namesIn(s).concat(entitiesIn(s));
+        // "She took it and threw it back to him." - a subject pronoun IS a
+        // name the story already gave us; put it back so the action has an actor.
+        if (!names.length && !q && leadName && present.indexOf(leadName) < 0) present.unshift(leadName);
+        noteRecent(present);   // who appears at all, including inside "Look, Leo!"
         if (q) {
-          let who = names[0] || (prev && prev !== last ? prev : last) || 'Narrator';
+          const pro = !names.length && outside.match(/\b(he|she|they)\b/i);
+          const proName = pro ? pronounName(pro[1].toLowerCase()) : null;
+          let who = names[0] || proName || (prev && prev !== last ? prev : last) || 'Narrator';
           prev = last; last = who;
           lastQuote = beat(who, q[1].trim(), present, s); cur.beats.push(lastQuote);
         } else {
@@ -812,6 +1042,42 @@ window.WriterFree = (function () {
           cur.beats.push(beat('Narrator', s.trim(), present, s)); lastQuote = null;
         }
       }
+    }
+    // A scene told entirely in pronouns - "That night, the two friends sat by
+    // the fire." - names nobody, and an unnamed scene used to stage NOBODY:
+    // just a background. If no beat in the scene says who is in it, the people
+    // the story already put on stage are who it means.
+    {
+      let seen = [];
+      scenes.forEach(sc => {
+        const named = sc.beats.some(b => (b.who && b.who !== 'Narrator') ||
+          (b.mentioned || []).some(nm => nm && !PROPS.has(nm)));
+        if (!named && seen.length) {
+          sc.beats.forEach(b => {
+            if (!b.mentioned) b.mentioned = [];
+            seen.forEach(nm => { if (b.mentioned.indexOf(nm) < 0) b.mentioned.push(nm); });
+          });
+        }
+        sc.beats.forEach(b => {
+          [b.who].concat(b.mentioned || []).forEach(nm => {
+            if (nm && nm !== 'Narrator' && seen.indexOf(nm) < 0) seen.push(nm);
+          });
+        });
+      });
+    }
+    // Numbered headings ("Scene 1:") start a scene without naming a background.
+    // Resolve those placeholders from the first setting cue inside the scene,
+    // else from a neighbouring scene, so a heading never leaves the story on
+    // an unknown background.
+    {
+      const KNOWN = { park: 1, room: 1, night: 1, beach: 1, street: 1, school: 1 };
+      const cueOf = sc => { for (const b of sc.beats) { const p = settingCue(b.say || ''); if (p) return p; } return null; };
+      scenes.forEach((sc, i) => {
+        if (KNOWN[sc.bg]) return;
+        sc.bg = cueOf(sc) || (i > 0 ? scenes[i - 1].bg : null) ||
+          scenes.slice(i + 1).map(cueOf).find(Boolean) || 'park';
+        if (!KNOWN[sc.bg]) sc.bg = 'park';
+      });
     }
     // The cast is everyone who speaks OR is mentioned, so a story told in plain
     // prose still puts its characters on the stage instead of an empty background.
@@ -821,9 +1087,23 @@ window.WriterFree = (function () {
         if (nm && nm !== 'Narrator' && !cast.includes(nm)) cast.push(nm);
       });
     }));
+    // A PROP is staged but is not a character. The detected-character list the
+    // Studio shows must not call the apple, the box or the nuts a person; but
+    // an entity that actually ACTS (the bird that flies in) IS a character.
+    const actors = new Set();
+    scenes.forEach(sc => sc.beats.forEach(b => {
+      if (b.who && b.who !== 'Narrator') actors.add(b.who);
+      Object.keys(b.dir || {}).forEach(nm => {
+        const d = b.dir[nm];
+        if (d && d.action && d.action !== 'none') actors.add(nm);
+      });
+    }));
+    const chars = cast.filter(n => !PROPS.has(n) || actors.has(n));
+    const propsOnly = cast.filter(n => PROPS.has(n) && !actors.has(n));
     return {
       title: text.trim().split(/\s+/).slice(0, 5).join(' '),
-      characters: cast.map(n => ({ name: n, hint: HINTS[n] || null, prop: PROPS.has(n) || undefined })),
+      characters: chars.map(n => ({ name: n, hint: HINTS[n] || null, prop: PROPS.has(n) || undefined })),
+      props: propsOnly.map(n => ({ name: n, hint: HINTS[n] || null })),
       scenes
     };
   }

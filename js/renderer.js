@@ -2,6 +2,8 @@
 window.Renderer = (function () {
   const W = 1280, H = 720, FEET = 600, SCALE = 1.0, FADE = 0.5;
   const SFX = { crash: 'CRASH!', boing: 'BOING!', whoosh: 'WHOOSH!', door: 'KNOCK KNOCK!', pop: 'POP!', splash: 'SPLASH!' };
+  // actions that put a climber back on the ground (ends the tree lift)
+  const CLIMB_GROUND = { walk: 1, run: 1, jump: 1, sit: 1, dance: 1, swim: 1, fly: 1, sleep: 1, carrywalk: 1 };
   let raf = 0;
 
   // A beat lasts as long as its line needs: the reading-time formula, or the
@@ -16,6 +18,8 @@ window.Renderer = (function () {
     // has always returned, so Mia and Leo are drawn exactly as before.
     const looks = {}, prop = {};
     script.characters.forEach(c => { looks[c.name] = Characters.look(c.name, c.hint); prop[c.name] = !!c.prop; });
+    // props are staged and drawn but are not characters (writer-free splits them)
+    (script.props || []).forEach(c => { looks[c.name] = Characters.look(c.name, c.hint); prop[c.name] = true; });
     let t = 0;
     // A prop that has been PICKED UP is no longer standing on the ground: it
     // rides in somebody's paw until it is thrown. `held` tells the blocking
@@ -28,9 +32,14 @@ window.Renderer = (function () {
       // it. Only speakers used to count, so a story told in plain prose with no
       // quotation marks produced an empty stage with nothing but a background.
       sc.beats.forEach(b => {                                 // carried props stay visible
-        if (b.grab) holdingProp = b.grab.obj;
+        if (b.grab) { holdingProp = b.grab.obj; heldActor = b.grab.actor; }
         if (holdingProp && (b.mentioned || []).indexOf(holdingProp) < 0) b.mentioned = (b.mentioned || []).concat([holdingProp]);
-        if (b.throw && b.throw.obj === holdingProp) holdingProp = null;
+        // the PAW holding a prop stays on stage with it: a held apple must not
+        // float through a scene whose cast does not include its carrier
+        if (holdingProp && heldActor && (b.mentioned || []).indexOf(heldActor) < 0 && b.who !== heldActor) {
+          b.mentioned = (b.mentioned || []).concat([heldActor]);
+        }
+        if (b.throw && b.throw.obj === holdingProp) { holdingProp = null; heldActor = null; }
       });
       const names = [];
       sc.beats.forEach(b => {
@@ -94,11 +103,35 @@ window.Renderer = (function () {
       const room = (a, b) => big(a) || big(b) ? Math.min(400, (halfW(a) + halfW(b)) * 1.12) : Math.min(240, halfW(a) + halfW(b));
       const rest = {};
       names.forEach((nm, i) => { rest[nm] = W * (i + 1) / (names.length + 1); });
+      // A prop picked "from the tree" is staged at the canopy trunk from the
+      // very first beat, so a walker aiming at it walks to the REAL tree and
+      // the reach/grab happens under the branches, not mid-field.
+      const fromUpUntil = {};                 // prop -> beat index it leaves the tree
+      sc.beats.forEach((b, bi) => {
+        if (!(b.grab && b.grab.fromUp)) return;
+        const obj = b.grab.obj, act = b.grab.actor;
+        fromUpUntil[obj] = bi;
+        const mark = W * (names.indexOf(act) + 1) / (names.length + 1);
+        const trs = (Scenes.trees && Scenes.trees[sc.bg]) || [];
+        let ax = mark;
+        if (trs.length) {
+          let best = trs[0], bd = Infinity;
+          trs.forEach(tr => { const d2 = Math.abs(mark - tr[0]); if (d2 < bd) { bd = d2; best = tr; } });
+          ax = best[0] + 52 * (mark >= best[0] ? 1 : -1);
+        }
+        rest[obj] = ax;
+      });
       let prevHere = [];
-      beats.forEach(b => {
+      beats.forEach((b, bi) => {
         const here = names.filter(nm => onStageAt(b, nm));
         const next = {};
         here.forEach(nm => { next[nm] = rest[nm]; });
+        // Once the fruit has been thrown/handed on, it is an ordinary ground
+        // prop again - the canopy pin only covers the beats up to the pick.
+        Object.keys(fromUpUntil).forEach(obj => {
+          if (bi > fromUpUntil[obj] && b.throw && b.throw.obj === obj) rest[obj] = undefined;
+          if (bi > fromUpUntil[obj] && rest[obj] === undefined && b.restX && b.restX[obj] !== undefined) rest[obj] = b.restX[obj];
+        });
         const movers = [];
         here.forEach(nm => {
           const d = b.dir && b.dir[nm];
@@ -123,7 +156,14 @@ window.Renderer = (function () {
         // the carrot 427 -> 325 -> 345 across a scene in which neither of them
         // ever moved).
         const placed = {};
-        const blocked = (nm, x) => here.some(o => o !== nm && !held[o] && Math.abs(x - next[o]) < room(nm, o));
+        // The prop being lifted THIS beat is part of the picker, not an obstacle.
+        const picking = b.grab ? b.grab.obj : null;
+        // Fruit still hanging in the canopy is AIRBORNE set dressing, not a body
+        // standing on the ground: nobody has to keep personal space from it, so
+        // the picker can stand right under the branches and really reach it.
+        let air = null;
+        Object.keys(fromUpUntil).forEach(o => { if (air === null && bi <= fromUpUntil[o]) air = o; });
+        const blocked = (nm, x) => here.some(o => o !== nm && !held[o] && o !== picking && o !== air && Math.abs(x - next[o]) < room(nm, o));
         const freeSpot = (nm, want) => {
           if (!blocked(nm, want)) return want;
           // The escape spot must stay on the SAME side of every friend as the
@@ -131,7 +171,7 @@ window.Renderer = (function () {
           // the walk there run straight through the whole cast. When the whole
           // corridor is full we hold the aimed mark (slightly too close) and let
           // the personal-space pass below nudge the walkers apart.
-          const sameSide = cand => here.every(o => o === nm || held[o] ||
+          const sameSide = cand => here.every(o => o === nm || held[o] || o === picking || o === air ||
             (want - next[o]) * (cand - next[o]) > 0);
           for (let step = 40; step <= 600; step += 40) {       // nearest clear spot, same side first
             for (const cand of [want + step, want - step]) {
@@ -143,7 +183,17 @@ window.Renderer = (function () {
         };
         movers.forEach(pair => {
           const nm = pair[0], tgt = pair[1];
+          // Walking over to pick a prop up means walking ON TOP of where that
+          // prop lies - the grab choreography leans in and lifts from there.
+          // Offsetting by room() (and then being called "blocked" by the prop
+          // itself) shoves the picker to the far edge of the stage instead.
+          if (b.grab && b.grab.actor === nm && b.grab.obj === tgt) { placed[nm] = true; return; }
           const side = next[nm] < next[tgt] ? -1 : 1;           // keep approaching from the same side
+          if (fromUpUntil[tgt] !== undefined && bi <= fromUpUntil[tgt]) {
+            next[nm] = next[tgt] + side * (Math.min(halfW(nm), 78) + 24);   // stand under the branches
+            placed[nm] = true;
+            return;
+          }
           next[nm] = freeSpot(nm, next[tgt] + side * room(nm, tgt));
           placed[nm] = true;
         });
@@ -170,7 +220,7 @@ window.Renderer = (function () {
             return obj ? room(a, b) : (halfW(a) + halfW(b)) * 1.12;
           };
           for (let pass = 0; pass < 8; pass++) {
-            const line = here.filter(nm => !held[nm]).sort((p, q) => next[p] - next[q]);   // carried props ride in a paw
+            const line = here.filter(nm => !held[nm] && nm !== picking && nm !== air).sort((p, q) => next[p] - next[q]);   // carried props ride in a paw
             let moved = false;
             const fix = (a, b) => {
               const need = needOf(a, b), gap = next[b] - next[a];
@@ -200,7 +250,11 @@ window.Renderer = (function () {
       });
       return { bg: sc.bg, names, stage, beats, start: sceneStart, end: sceneEnd };
     });
-    return { scenes, looks, total: t };
+    const tl = { scenes: scenes, looks: looks, total: t };
+    // The Blocking Director re-spaces every beat so characters never merge.
+    // Optional module: without it the timeline is exactly the old behaviour.
+    if (window.Blocking && window.Blocking.apply) window.Blocking.apply(tl);
+    return tl;
   }
 
   function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
@@ -213,11 +267,18 @@ window.Renderer = (function () {
   // A character who is on stage but not part of this line still has to DO
   // something believable: watch whoever is speaking, and react in their own way
   // rather than copying the speaker's expression.
-  function bystander(name, beat, visibleNames, isActor, rank) {
+  // Actions that are a STATE, not a moment: if the story put somebody to sleep
+  // or sat them down, a beat that simply does not mention them must not snap
+  // them back to standing at attention. They carry on until told otherwise.
+  const CARRY_ON = { sleep: 1, sit: 1 };
+  function bystander(name, beat, visibleNames, isActor, rank, prevDir) {
     if (!isActor) return { action: 'none', emotion: 'neutral', look: null, listen: false, move: null };
     const speaker = beat.who !== 'Narrator' && visibleNames.indexOf(beat.who) >= 0 ? beat.who : null;
     const look = beat.focus && beat.focus !== name ? beat.focus : speaker;
-    if (!look) return { action: 'none', emotion: 'neutral', look: null, listen: false, move: null };
+    // carry on sleeping / sitting: a beat that simply does not mention you is
+    // not an order to stand up
+    const carried = prevDir && CARRY_ON[prevDir.action] ? prevDir.action : null;
+    if (!look) return { action: carried || 'none', emotion: 'neutral', look: null, listen: false, move: null };
     let h = 0;
     for (const ch of String(name)) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
     const pick = (h + (rank < 0 ? 0 : rank)) % 3;            // same spread as writer-free uses
@@ -228,12 +289,14 @@ window.Renderer = (function () {
     // never hand a bystander the speaker's own expression: that is what made
     // the whole cast react identically before
     if (speaker && feel === beat.emotion) for (const alt of opts) if (alt !== beat.emotion) { feel = alt; break; }
-    return { action: 'none', emotion: speaker ? feel : 'surprised', look: look, listen: !!speaker, move: null };
+    return { action: carried || 'none', emotion: speaker ? feel : 'surprised', look: look, listen: !!speaker, move: null };
   }
 
   function drawAt(c, tl, t) {
     const s = tl.scenes.find(sc => t >= sc.start && t < sc.end) || tl.scenes[tl.scenes.length - 1];
     const beat = s.beats.find(b => t >= b.start && t < b.start + b.dur) || s.beats[s.beats.length - 1];
+    const bIdx = s.beats.indexOf(beat);
+    const prevBeat = bIdx > 0 ? s.beats[bIdx - 1] : null;      // for carrying a state (sleep/sit) across quiet beats
     const lt = t - s.start, age = t - beat.start, z = 1 + 0.035 * Math.min(1, age / beat.dur);
     const legacy = !s.stage;                                  // a timeline built before staging existed
 
@@ -260,7 +323,7 @@ window.Renderer = (function () {
         if (k < 1) moving = true;
       } else x = here;
       if (!legacy && e.exit < s.end) {                          // walk back off when the story moves on
-        const q = Math.max(0, Math.min(1, (e.exit - t) / 0.9));
+        const q = Math.max(0, Math.min(1, (e.exit - t) / (e.walkOff || 0.9)));
         if (q < 1) { x = here + (side - here) * (1 - q); moving = true; }
       }
       pos[e.name] = { x: x, slot: mark, side: side, moving: moving };
@@ -279,9 +342,10 @@ window.Renderer = (function () {
     // The writer marks beats with b.grab / b.throw. Between them the prop is
     // glued to its holder's paw; during the throw it flies a real arc; after
     // landing it stays where it fell and the puddle splashes.
-    const IX = { held: null, actor: null, phase: null, u: 0, tx: 0, landT: -9 };
+    const IX = { held: null, actor: null, phase: null, u: 0, tx: 0, landT: -9, groundLand: false };
     const feetOv = {};
     let grabB = null, throwB = null, holdObj = null, holderN = null;
+    let sameBeat = false, catchGrab = false;
     for (let si = 0; si < tl.scenes.length; si++) {          // ACROSS scenes:
       const sc2 = tl.scenes[si];                              // the grab may live in an
       if (sc2.start > t) break;                               // earlier scene than the throw
@@ -291,35 +355,95 @@ window.Renderer = (function () {
         if (b.throw) throwB = b;
       }
     }
+    // a prop picked "from the tree" waits up in the canopy: pin it to the
+    // nearest background trunk, high above the ground, until the grab beat
+    // lifts it down into the paw - the fruit visibly travels tree -> hand.
+    const canopy = x0 => {
+      const trs = (Scenes.trees && Scenes.trees[s.bg]) || [];
+      let ax = x0;
+      if (trs.length) {
+        let best = trs[0], bd = Infinity;
+        trs.forEach(tr => { const dd = Math.abs(x0 - tr[0]); if (dd < bd) { bd = dd; best = tr; } });
+        ax = best[0] + 52 * (x0 >= best[0] ? 1 : -1);   // canopy edge on the picker's side
+      }
+      return [ax, FEET - 250];
+    };
+    for (const b of s.beats) {
+      if (b.grab && b.grab.fromUp && pos[b.grab.obj] && t < b.start) {
+        const rx = b.restX && b.restX[b.grab.obj] !== undefined ? b.restX[b.grab.obj] : pos[b.grab.obj].slot;
+        const a = canopy(rx);
+        pos[b.grab.obj].x = a[0]; feetOv[b.grab.obj] = a[1];
+      }
+    }
     if (holdObj && holderN && pos[holdObj] && pos[holderN]) {
       const HL = tl.looks[holderN];
       const onH = (HL.kind === 'human' ? Characters.HUMAN_PX
                    : (Characters.H_ANIMAL[HL.species] || 240) * (HL.size || 1)) * SCALE;
       const me0 = pos[holderN];
-      const sign = me0.towards && pos[me0.towards] ? (pos[me0.towards].x > me0.x ? 1 : -1)
-                   : (me0.x > W / 2 ? -1 : 1);                 // paw on the side being faced
-      const hand = () => [me0.x + sign * onH * 0.17, FEET - onH * 0.32];   // chest-height paw
-      if (grabB && t < grabB.start + grabB.dur) {
+      let sign;
+      if (me0.towards && pos[me0.towards]) sign = pos[me0.towards].x > me0.x ? 1 : -1;
+      else {                                                  // face the nearest castmate
+        let bd = Infinity, bx = null;
+        vis.forEach(v => { if (v !== holderN && tl.looks[v] && tl.looks[v].kind !== 'object' && pos[v]) {
+          const d2 = Math.abs(pos[v].x - me0.x); if (d2 < bd) { bd = d2; bx = pos[v].x; } } });
+        sign = bx === null ? (me0.x > W / 2 ? -1 : 1) : (bx > me0.x ? 1 : -1);
+      }                                                       // paw on the side being faced
+      // a leaping holder takes the held prop up with them
+      const jdir = beat.dir && beat.dir[holderN] ? beat.dir[holderN].action : '';
+      const lift = /jump/.test(jdir || '') ? Math.abs(Math.sin(t * 4.5)) * 110 : 0;
+      const hand = () => [me0.x + sign * onH * 0.17, FEET - onH * 0.32 - lift];   // chest-height paw
+      // A "give" beat carries grab AND throw: the wind-up keeps the fruit in the
+      // giver's paw, then the arc flies within the SAME beat. A grab that follows
+      // a throw aimed at its actor is a CATCH: the fruit arrives at chest height,
+      // not on the floor.
+      sameBeat = !!(grabB && throwB && grabB === throwB);
+      catchGrab = !!(grabB && throwB && throwB !== grabB && throwB.start < grabB.start &&
+        throwB.throw && throwB.throw.to === grabB.grab.actor);
+      if (grabB && t < grabB.start + grabB.dur && !sameBeat) {
         const u = Math.min(1, (t - grabB.start) / (grabB.dur * 0.85));
         const lift = Math.max(0, Math.min(1, (u - 0.4) / 0.6)); // first walk over, THEN bend and lift
         const e2 = 1 - Math.pow(1 - lift, 3);
-        const g0 = grabB.restX && grabB.restX[holdObj] !== undefined ? grabB.restX[holdObj] : pos[holdObj].slot;
+        const a0 = (grabB.grab && grabB.grab.fromUp)
+          ? canopy(grabB.restX && grabB.restX[holdObj] !== undefined ? grabB.restX[holdObj] : pos[holdObj].slot)
+          : null;
+        let g0 = a0 ? a0[0] : (grabB.restX && grabB.restX[holdObj] !== undefined ? grabB.restX[holdObj] : pos[holdObj].slot);
+        let gy0 = a0 ? a0[1] : FEET;
+        if (catchGrab && pos[throwB.throw.to]) {              // arrives in the air, at the chest
+          const CL = tl.looks[throwB.throw.to];
+          const onC = ((CL.kind === 'human' ? Characters.HUMAN_PPX || Characters.HUMAN_PX
+            : (Characters.H_ANIMAL[CL.species] || 240) * (CL.size || 1))) * SCALE;
+          g0 = pos[throwB.throw.to].x; gy0 = FEET - onC * 0.34;
+        }
         const h = hand();
         IX.phase = 'grab'; IX.u = u;
         pos[holdObj].x = g0 + (h[0] - g0) * e2;
-        feetOv[holdObj] = FEET + (h[1] - FEET) * e2;
+        feetOv[holdObj] = gy0 + (h[1] - gy0) * e2;
+      } else if (grabB && throwB && grabB.start > throwB.start) {
+        const h2 = hand();                                    // catch completed: it rides in the paw
+        pos[holdObj].x = h2[0]; feetOv[holdObj] = h2[1];
+        IX.phase = 'carry';
       } else if (throwB) {
-        const u = Math.min(1, (t - throwB.start) / (throwB.dur * 0.7));
-        let tgt = null;
         const toN = throwB.throw && throwB.throw.to;
+        const u = sameBeat
+          ? Math.min(1, Math.max(0, ((t - throwB.start) / throwB.dur - 0.3) / 0.55))
+          : Math.min(1, (t - throwB.start) / (throwB.dur * 0.7));
+        let tgt = null;
         if (toN) tgt = pos[toN] ? pos[toN].x
           : (throwB.restX && throwB.restX[toN] !== undefined ? throwB.restX[toN] : null);
         if (tgt === null) tgt = me0.x + sign * 300;
-        const h = hand(), ty = FEET - 30;                    // settles ON the puddle surface
+        const h = hand();
+        // into a catcher's arms when a CHARACTER is catching; otherwise the
+        // fruit settles ON the puddle surface exactly as before
+        const CL2 = toN && tl.looks[toN];
+        const ty = (CL2 && CL2.kind !== 'object')
+          ? FEET - (((CL2.kind === 'human' ? Characters.HUMAN_PX
+              : (Characters.H_ANIMAL[CL2.species] || 240) * (CL2.size || 1))) * SCALE) * 0.34
+          : FEET - 30;
         pos[holdObj].x = h[0] + (tgt - h[0]) * u;
         feetOv[holdObj] = h[1] + (ty - h[1]) * u - Math.sin(Math.PI * u) * 190;
         IX.phase = u < 1 ? 'throw' : 'landed'; IX.u = u;
         IX.landT = throwB.start + throwB.dur * 0.7; IX.tx = tgt;
+        IX.groundLand = ty >= FEET - 31;                // splash only for mud/ground drops
       } else {
         const h = hand();
         pos[holdObj].x = h[0]; feetOv[holdObj] = h[1];
@@ -345,11 +469,15 @@ window.Renderer = (function () {
       const L = tl.looks[name];
       const isProp = !!(L && L.kind === 'object');
       const d = beat.dir && beat.dir[name] ? beat.dir[name]
-        : (beat.dir ? bystander(name, beat, vis, !isProp, vis.filter(v => v !== beat.who).indexOf(name)) : null);
+        : (beat.dir ? bystander(name, beat, vis, !isProp, vis.filter(v => v !== beat.who).indexOf(name),
+            prevBeat && prevBeat.dir ? prevBeat.dir[name] : null) : null);
       // what this ONE character is doing - never the whole cast at once
       let action, emotion, lookX = 0, lookY = 0, listen = false, laugh = false;
       if (!d) {                                                // the original shared behaviour
-        action = me.moving ? 'walk' : (speaker || beat.action === 'run' ? beat.action : 'none');
+        // A legacy timeline (built before per-character direction existed)
+        // still carries an action on the beat - honour every one of them on
+        // narration lines, not just "run".
+        action = me.moving ? 'walk' : (speaker || (beat.who === 'Narrator' && beat.action !== 'none') ? beat.action : 'none');
         emotion = me.moving ? 'happy' : beat.emotion;
         laugh = emotion === 'happy' && /\b(ha ?ha|hehe|laugh)/i.test(beat.say);
       } else {
@@ -362,9 +490,14 @@ window.Renderer = (function () {
       }
       // ---- object-interaction poses for the holder (speaker priority kept) --
       if (IX.actor === name) {
-        if (IX.phase === 'grab') { action = IX.u < 0.4 ? (me.moving ? 'walk' : 'none') : (IX.u < 0.95 ? 'pickup' : 'carry'); if (IX.u >= 0.4) lookY = 1; }
-        else if (IX.phase === 'carry') action = me.moving ? 'carrywalk' : 'carry';
-        else if (IX.phase === 'throw') action = IX.u < 0.55 ? 'throw' : 'none';
+        if (IX.phase === 'grab') {
+          const fromUp = !!(grabB && grabB.grab && grabB.grab.fromUp);
+          action = IX.u < 0.4 ? (catchGrab ? 'catch' : (me.moving ? 'walk' : 'none')) : (IX.u < 0.95 ? (fromUp ? 'reach' : 'pickup') : 'carry');
+          if (IX.u >= 0.4) lookY = fromUp ? -1 : 1;          // eyes on the fruit above
+        }
+        else if (IX.phase === 'carry') action = me.moving ? 'carrywalk'
+          : (d && /jump|dance/.test(d.action) ? d.action : 'carry');   // joy leaps survive holding
+        else if (IX.phase === 'throw') action = (beat.grab && beat.throw) ? (IX.u < 0.45 ? 'give' : 'throw') : (IX.u < 0.55 ? 'throw' : 'none');
       }
       // ---- gaze: turn the head and eyes towards whoever or whatever it is ----
       let lookName = d ? d.look : (speaker ? null : (beat.who !== 'Narrator' && beat.who !== name && pos[beat.who] !== undefined ? beat.who : null));
@@ -382,6 +515,32 @@ window.Renderer = (function () {
       if (beat.float && name === beat.focus) {                  // the carrot lifts off the ground
         feet = FEET - Math.min(1, age / 1.1) * 120 - Math.sin(t * 1.7) * 12;
       }
+      // ---- climbing a real tree: walk to the nearest background trunk and
+      // ---- rise up it. The lift ramps over the climb beat and holds until a
+      // ---- later beat puts the character back on the ground (jump down, walk
+      // ---- off, sit...), so "climbed the tree" is visible for the whole scene.
+      if (!isProp && d && d.action === 'climb') {
+        let climbBeat = null, cancelled = false;
+        for (const b of s.beats) {
+          if (b.start > t) break;
+          const dd = b.dir && b.dir[name];
+          if (!dd) continue;
+          if (dd.action === 'climb') { climbBeat = b; cancelled = false; }
+          else if (CLIMB_GROUND[dd.action]) cancelled = true;
+        }
+        if (climbBeat && !cancelled) {
+          const u = Math.max(0, Math.min(1, (t - climbBeat.start) / (climbBeat.dur * 0.85)));
+          const trs = (Scenes.trees && Scenes.trees[s.bg]) || [];
+          if (trs.length) {
+            let best = trs[0], bd = Infinity;
+            trs.forEach(tr => { const dd = Math.abs(me.x - tr[0]); if (dd < bd) { bd = dd; best = tr; } });
+            const side = me.x >= best[0] ? 1 : -1;
+            me.x += ((best[0] + side * 30) - me.x) * u;
+          }
+          feet = FEET - u * 150;
+          action = 'climb'; lookY = -1; listen = false;
+        }
+      }
       const P = Acting.pose(L, { t: t, emotion: emotion, action: action, talking: speaker && !me.moving,
         laugh: laugh && !me.moving, look: lookX, lookY: lookY, listen: listen });
       // the clock is passed through so animals and objects can keep moving:
@@ -389,7 +548,7 @@ window.Renderer = (function () {
       Characters.draw(c, L, P, me.x, feet, SCALE, flip, t);
       c.fillStyle = '#2b1d3a'; c.font = 'bold 22px Trebuchet MS, Verdana, sans-serif'; c.textAlign = 'center';
     });
-    if (IX.landT > 0) {                                   // mud splash ring + droplets
+    if (IX.landT > 0 && IX.groundLand) {                  // mud splash ring + droplets
       const sa = t - IX.landT;
       if (sa >= 0 && sa < 1.0) {
         const k = sa / 1.0, al = 1 - k;

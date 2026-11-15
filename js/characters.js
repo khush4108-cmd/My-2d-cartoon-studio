@@ -76,6 +76,8 @@ window.Characters = (function () {
   // ---------- inanimate objects ----------
   const OBJECTS = {
     carrot:   { shape: 'carrot',   colour: '#ff8c1a', leaf: '#4fa83d', size: 0.85 },
+    nut:      { shape: 'nut',      colour: '#8a5a2b', leaf: '#5a3418', size: 0.30 },
+    nuts:     { shape: 'nut',      colour: '#8a5a2b', leaf: '#5a3418', size: 0.34 },
     cake:     { shape: 'round',    colour: '#ff9ec4', leaf: '#ffffff', size: 0.70 },
     ball:     { shape: 'round',    colour: '#e0483d', leaf: '#ffffff', size: 0.55 },
     apple:    { shape: 'round',    colour: '#e0483d', leaf: '#4fa83d', size: 0.45 },
@@ -296,6 +298,23 @@ window.Characters = (function () {
           c.closePath(); c.fill();
         }
       }
+      c.restore(); return;
+    }
+    if (O.shape === 'nut') {
+      // an edible acorn-style nut: textured cap over a smooth tapered body
+      c.beginPath(); c.moveTo(-40, -96);
+      c.bezierCurveTo(-46, -40, -26, -6, 0, 0);
+      c.bezierCurveTo(26, -6, 46, -40, 40, -96);
+      c.closePath(); fillStroke(c, col);
+      c.fillStyle = 'rgba(255,255,255,.25)';
+      c.beginPath(); c.ellipse(-16, -62, 9, 26, 0.14, 0, 7); c.fill();
+      c.fillStyle = L.accent || '#5a3418';
+      c.beginPath(); c.ellipse(0, -100, 46, 22, 0, 0, 7); c.fill();
+      c.strokeStyle = INK; c.lineWidth = 6; c.stroke();
+      c.lineWidth = 4; c.strokeStyle = 'rgba(43,29,58,.35)';
+      for (const k of [-24, -8, 8, 24]) { c.beginPath(); c.moveTo(k, -112); c.quadraticCurveTo(k * 1.2, -100, k, -88); c.stroke(); }
+      c.strokeStyle = INK; c.lineWidth = 7;
+      c.beginPath(); c.moveTo(0, -120); c.quadraticCurveTo(4, -134, 10, -138); c.stroke();
       c.restore(); return;
     }
     if (O.shape === 'star') {

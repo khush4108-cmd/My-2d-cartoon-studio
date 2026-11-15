@@ -108,12 +108,17 @@ console.log('\n════ PIXEL 2. MAX NEVER INHERITS COCO\'S SPECIES ══�
 }
 
 console.log('\n════ PIXEL 3. NO PHANTOM CHARACTERS ════');
-[[S1, ['Coco', 'House', 'Max']], [S2, ['Coco', 'House', 'Max']], [S3, ['Coco', 'House', 'Max']], [S4, ['Coco', 'House', 'Max']]]
-  .forEach(([story, want], i) => {
+// Updated with the approved cast/props split: the described house is a PROP -
+// staged and drawn, but never listed as a character.
+[[S1, ['Coco', 'Max'], ['House']], [S2, ['Coco', 'Max'], ['House']], [S3, ['Coco', 'Max'], ['House']], [S4, ['Coco', 'Max'], ['House']]]
+  .forEach(([story, want, wantProps], i) => {
     const sc = NEW.WriterFree.write(story);
     const got = sc.characters.map(c => c.name).sort();
+    const gotProps = (sc.props || []).map(p => p.name).sort();
     ok(JSON.stringify(got) === JSON.stringify(want.slice().sort()),
       'story ' + (i + 1) + ' cast is exactly ' + JSON.stringify(want) + ' (got ' + JSON.stringify(got) + ')');
+    ok(JSON.stringify(gotProps) === JSON.stringify(wantProps.slice().sort()),
+      'story ' + (i + 1) + ' props are exactly ' + JSON.stringify(wantProps) + ' (got ' + JSON.stringify(gotProps) + ')');
   });
 
 console.log('\n════ PIXEL 4. THE WOODEN HOUSE IS A VISIBLE WOODEN HOUSE ════');

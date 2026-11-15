@@ -67,5 +67,9 @@ window.Scenes = (function () {
       rect(c, '#b5651d', 1000, 520, 200, 20); rect(c, '#8b5a2b', 1020, 540, 14, 70); rect(c, '#8b5a2b', 1166, 540, 14, 70);
     }
   };
-  return { W, H, draw: (c, bg, t) => (draw[bg] || draw.park)(c, t) };
+  // Trunk positions of the climbable background trees, per background, so the
+  // renderer can send a climbing character to a real tree instead of climbing
+  // thin air. Backgrounds without trees give an empty list (climb in place).
+  const TREES = { park: [[180, 1.1], [1090, 1]], night: [[220, 1.1], [1120, 1]], beach: [[150, 1]] };
+  return { W, H, trees: TREES, draw: (c, bg, t) => (draw[bg] || draw.park)(c, t) };
 })();

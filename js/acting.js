@@ -40,27 +40,48 @@ window.Acting = {
         P.armL = P.armR = 0.3; P.eyeScale = 0.9; break;
       // ---- object interaction: pick up, carry, throw. New names only; a
       // ---- caller that never passes them gets exactly the poses above.
-      case 'pickup': P.dy = 34; P.tuck = 0.5; P.tilt += 0.18; P.lookY = 1;
+      case 'pickup': P.dy = 34; P.tuck = 0.5; P.tilt += 0.05; P.lookY = 1;
         P.armL = P.armR = 1.15; P.sq = 0.03; break;
-      case 'carry': P.armL = P.armR = 1.25; P.dy += 2; P.tilt += 0.04; break;
+      case 'carry': P.armL = P.armR = 1.25; P.dy += 2; break;
       case 'carrywalk': P.step = t * 8; P.stepAmp = 1; P.armL = P.armR = 1.25;
         P.dy -= Math.abs(Math.sin(P.step)) * 6; break;
       case 'throw': P.armR = 2.5 + Math.sin(t * 14) * 0.5; P.armL = 0.5;
-        P.tilt -= 0.06; P.lookY = -0.5; break;
+        P.tilt -= 0.04; P.lookY = -0.5; break;
+      // ---- forest-story poses: climb, catch, give -------------------------
+      // climb is its own action, NOT a jump synonym: alternating reach-up arms,
+      // tucked legs cycling, chin up - the renderer also lifts the whole body
+      // up the nearest background tree while this pose runs.
+      case 'climb': { const cy = t * 5.2; P.step = cy; P.stepAmp = 0.9;
+        P.armL = 2.5 + Math.sin(cy) * 0.55; P.armR = 2.5 - Math.sin(cy) * 0.55;
+        P.tuck = 0.75 + Math.sin(cy) * 0.22; P.tilt += 0.03; P.lookY = -1;
+        P.mouth = 'flat'; P.dy -= Math.abs(Math.sin(cy)) * 8; break; }
+      // the receiver of a given/thrown object: arms up and out, eyes on it,
+      // a small hop as it arrives - visibly catching, never just standing.
+      case 'catch': { const cu = Math.abs(Math.sin(t * 6)); P.armL = P.armR = 2.1;
+        P.lookY = -0.6; P.dy -= cu * 10; P.tuck = 0.3 * cu; P.mouth = 'o';
+        P.brow = 'up'; break; }
+      // the giver: one arm extended towards the receiver after the grab.
+      case 'give': P.armR = 1.9 + Math.sin(t * 3) * 0.08; P.armL = 0.4;
+        P.tilt += 0.02; P.lookY = 0.2; P.mouth = 'smile'; break;
+      // reaching UP for something above the head: one arm fully stretched,
+      // the other balancing, on tiptoe, chin and eyes up - used for fruit in
+      // a tree before the grab lifts it down into the hand.
+      case 'reach': P.armR = 2.6 + Math.sin(t * 2.5) * 0.12; P.armL = 0.5;
+        P.lookY = -1; P.tuck = 0.06; P.brow = 'up';
+        P.mouth = 'flat'; P.dy -= Math.sin(t * 2.2) * 1.5; break;
     }
     // ---- where this character is looking, and whether they are listening ----
     // Optional. A caller that passes neither gets the pose computed above,
     // unchanged: `look` defaults to undefined and every branch below is skipped.
     if (typeof o.look === 'number' && o.look !== 0) {
-      P.lookX = Math.max(-1, Math.min(1, o.look));
-      P.tilt += o.look * 0.1;                                  // the head turns with the eyes
+      P.lookX = Math.max(-1, Math.min(1, o.look));           // head-only: the rig turns
+                                                              // head+eyes, torso stays upright
     }
     if (typeof o.lookY === 'number' && o.lookY !== 0) {
-      P.lookY = Math.max(-1, Math.min(1, o.lookY));
-      if (o.lookY < -0.3) P.tilt -= 0.09;                      // chin up, watching it rise
+      P.lookY = Math.max(-1, Math.min(1, o.lookY));          // chin up via head rot only
     }
     if (o.listen) {
-      P.tilt += 0.08;                                          // leaning in to hear
+      P.tilt += 0.02;                                          // a whisper of lean-in
       if (P.brow === 'flat') P.brow = 'up';
       if (P.armL > 0.5 && o.action !== 'wave') P.armL = 0.22;  // arms down: not performing
       if (P.armR > 0.5 && o.action !== 'wave') P.armR = 0.22;

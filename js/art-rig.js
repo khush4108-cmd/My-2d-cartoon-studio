@@ -101,8 +101,8 @@ window.ArtRig = (function () {
     t = t || 0;
     const J = {
       dx: P.dx || 0, dy: P.dy || 0, sq: P.sq || 0, tilt: P.tilt || 0,
-      head: (P.tilt || 0) * 0.6 + (P.lookX || 0) * 0.10 + (P.lookY || 0) * 0.06,
-      headRoll: (P.tilt || 0) * 0.5 + (P.lookX || 0) * 0.04,
+      head: (P.tilt || 0) * 0.6 + (P.lookX || 0) * 0.22 + (P.lookY || 0) * 0.16,
+      headRoll: (P.tilt || 0) * 0.5 + (P.lookX || 0) * 0.08,
       chest: (P.tilt || 0) * 0.25,
       blink: P.blink || 0, eyes: P.eyes || 'open', lookX: P.lookX || 0, lookY: P.lookY || 0,
       brow: P.brow || 'flat', mouth: P.mouth || 'smile', open: P.open || 0,
