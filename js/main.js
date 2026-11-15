@@ -136,6 +136,19 @@
     $('result').innerHTML = html;
   }
 
+  // --- Action validation (additive, report-only) --------------------------
+  // js/validate.js is OPTIONAL: if it did not load, or if it throws, the Studio
+  // behaves exactly as it did before and the cartoon still plays. An honest
+  // report about actions the engine cannot animate must never be the reason
+  // nothing happens, and it never changes the script, the timeline or a pixel.
+  function showActionReport(script) {
+    const box = $('result');
+    if (!box || !window.ActionValidate) return;
+    try {
+      box.innerHTML += ActionValidate.panelHTML(ActionValidate.check(script));
+    } catch (e) { /* report-only: never block the picture or the sound */ }
+  }
+
   function make() {
     try {
       const errs = $('errors'); if (errs) { errs.textContent = ''; errs.className = ''; }
@@ -149,6 +162,7 @@
       if (problems.length) return fail(problems.join(' '));
       current = script;
       showScript(script);
+      showActionReport(script);   // NEW: honest action report, appended to #result
       // unlock() must run INSIDE this click tick for iOS Safari; loading the
       // recorded voices is async, so the picture starts once they are ready
       // (or immediately with the built-in voice if there are none).
