@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>My 2D Cartoon Studio</title>
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=19">
 <script>
   // Shows any problem on screen, so nothing fails silently.
   window.showError = function (msg) {
@@ -25,7 +25,16 @@
   <textarea id="story">Mia and Leo walked into the park. "Look, a giant duck!" said Mia. "Oh no, it is chasing us!" shouted Leo. They ran past the pond and Leo fell into the mud. "Ha ha, you look funny!" laughed Mia. At night they went home to the house. "That was the best day ever," said Leo.</textarea>
   <div class="row">
     <button id="make" class="go">Make my cartoon</button>
+    <button id="example" type="button">Coco &amp; Max story</button>
+    <button id="example2" type="button">Aarav, Coco &amp; Leo story</button>
+    <button id="example3" type="button">🎬 Bunty &amp; the Lost Baby Bird</button>
     <label class="ai"><input type="checkbox" disabled> AI writer (coming in Batch 5)</label>
+  </div>
+  <div class="row sound">
+    <button id="mute" type="button" aria-pressed="false">🔊 Sound on</button>
+    <label for="volume">Volume</label>
+    <input id="volume" type="range" min="0" max="100" step="5" value="90">
+    <span id="soundnote" class="ai"></span>
   </div>
   <div id="errors" role="alert"></div>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
@@ -33,12 +42,17 @@
   <section id="result"></section>
   <p class="note">Test page: <a href="export-test.html">Video + sound export test</a></p>
 </main>
-<script src="js/script-format.js?v=4"></script>
-<script src="js/writer-free.js?v=4"></script>
-<script src="js/characters.js?v=4"></script>
-<script src="js/acting.js?v=4"></script>
-<script src="js/scenes.js?v=4"></script>
-<script src="js/renderer.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/script-format.js?v=19"></script>
+<script src="js/writer-free.js?v=19"></script>
+<script src="js/art-paths.js?v=19"></script>
+<script src="js/art-rig.js?v=19"></script>
+<script src="js/characters.js?v=19"></script>
+<script src="js/acting.js?v=19"></script>
+<script src="js/scenes.js?v=19"></script>
+<script src="js/renderer.js?v=19"></script>
+<script src="js/blocking.js?v=19"></script>
+<script src="js/audio.js?v=19"></script>
+<script src="js/validate.js?v=19"></script>
+<script src="js/main.js?v=19"></script>
 </body>
 </html>

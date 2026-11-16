@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video + Sound Export Test — My 2D Cartoon Studio</title>
+<link rel="stylesheet" href="css/style.css?v=18">
+<script>
+  // Same on-screen error reporter as index.html, so nothing fails silently.
+  window.showError = function (msg) {
+    var e = document.getElementById('errors');
+    if (!e) { e = document.createElement('div'); e.id = 'errors'; document.body.insertBefore(e, document.body.firstChild); }
+    e.className = 'errbox'; e.textContent = 'Problem: ' + msg;
+  };
+  window.addEventListener('error', function (ev) {
+    window.showError((ev.message || 'unknown error') + (ev.filename ? ' (' + ev.filename.split('/').pop() + ':' + ev.lineno + ')' : ''));
+  });
+</script>
+<style>
+  .panel{margin-top:18px;border:3px solid var(--ink);border-radius:12px;background:#fff;padding:14px 16px}
+  .panel h2{margin:0 0 10px;font-size:1.15rem}
+  table.cap{width:100%;border-collapse:collapse;font-size:.95rem}
+  table.cap td{padding:5px 8px;border-bottom:1px dashed #ddd;vertical-align:top}
+  table.cap td:first-child{font-weight:bold;width:52%}
+  .yes{color:#1a7f37;font-weight:bold}
+  .no{color:#b3002d;font-weight:bold}
+  .verdict{margin-top:12px;padding:10px 14px;border-radius:10px;font-weight:bold}
+  .v-ok{background:#dff5e3;border:3px solid #1a7f37}
+  .v-bad{background:#ffe3e8;border:3px solid #b3002d}
+  .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .btns button{padding:10px 16px;font-size:.95rem}
+  #log{margin-top:14px;padding:10px 12px;border:2px dashed #ccc;border-radius:10px;
+       font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;background:#fffdf6;
+       max-height:220px;overflow:auto;white-space:pre-wrap}
+  .warn{background:#fff4d6;border:3px solid var(--sun);border-radius:10px;padding:10px 14px;margin-top:12px}
+  #dl{margin-top:12px;font-weight:bold}
+</style>
+</head>
+<body>
+<main>
+  <h1>Video + Sound Export Test</h1>
+  <p class="sub">A diagnostic page. It tells you what your browser can actually do, lets you
+     audition every sound on its own, and then tries to record the cartoon to a downloadable file.</p>
+  <p><a href="index.html">&larr; Back to the studio</a></p>
+  <div id="errors" role="alert"></div>
+
+  <div class="panel">
+    <h2>1. What this browser supports</h2>
+    <table class="cap"><tbody id="caps"></tbody></table>
+    <div id="verdict" class="verdict">Checking…</div>
+  </div>
+
+  <div class="panel">
+    <h2>2. Sound test — audition each sound on its own</h2>
+    <p class="sub">Press a button and listen. This is the easiest way to tell me a sound is too
+       loud, too quiet or too harsh, because each one plays by itself.</p>
+    <div class="btns" id="sfxBtns"></div>
+    <p style="margin:14px 0 0"><b>Scene ambience</b> (plays for 5 seconds)</p>
+    <div class="btns" id="bedBtns"></div>
+    <p style="margin:14px 0 0"><b>Voice</b></p>
+    <div class="btns">
+      <button type="button" id="sayBtn">Speak a test line</button>
+    </div>
+    <div class="row sound" style="margin-top:14px">
+      <button id="mute" type="button" aria-pressed="false">🔊 Sound on</button>
+      <label for="volume">Volume</label>
+      <input id="volume" type="range" min="0" max="100" step="5" value="90">
+      <span id="soundnote" class="ai"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>3. Record the cartoon to a video file</h2>
+    <label for="story">Story to record</label>
+    <textarea id="story" style="height:110px">Mia ran into the park. "Oh no, it is chasing us!" shouted Leo. Leo fell into the mud.</textarea>
+    <button id="loadBunty" type="button">🎬 Load the Bunty movie story</button>
+    <div class="btns">
+      <button type="button" id="recBtn" class="go">Record cartoon</button>
+      <button type="button" id="stopBtn">Stop early</button>
+    </div>
+    <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
+    <p id="dl"></p>
+    <div id="verify"></div>
+    <div class="warn">
+      <b>Two honest limitations.</b>
+      1. The spoken voices cannot be captured. <code>speechSynthesis</code> sends its audio straight
+      to the system speaker and never enters the Web Audio graph, so no browser can put it in a
+      recording. A downloaded file therefore contains the picture, the sound effects and the scene
+      ambience — but not the dialogue. The measurements below are taken from the audio that actually
+      went into your file, so you can see this for yourself rather than take it on trust.
+      2. On iPad, Safari records to <code>.mp4</code>, not <code>.webm</code>.
+      The buttons above report which format your browser chose.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>4. Log</h2>
+    <div id="log">Waiting…</div>
+  </div>
+</main>
+
+<script src="js/script-format.js?v=18"></script>
+<script src="js/writer-free.js?v=18"></script>
+<script src="js/art-paths.js?v=18"></script>
+<script src="js/art-rig.js?v=18"></script>
+<script src="js/characters.js?v=18"></script>
+<script src="js/acting.js?v=18"></script>
+<script src="js/scenes.js?v=18"></script>
+<script src="js/renderer.js?v=18"></script>
+<script src="js/blocking.js?v=18"></script>
+<script src="js/audio.js?v=18"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var logEl = $('log');
+  function log(msg) {
+    var stamp = (performance.now() / 1000).toFixed(2) + 's';
+    logEl.textContent = (logEl.textContent === 'Waiting…' ? '' : logEl.textContent) + stamp + '  ' + msg + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function fail(msg) { log('PROBLEM: ' + msg); if (window.showError) window.showError(msg); }
+
+  var AC = window.AudioContext || window.webkitAudioContext || null;
+
+  // ---------- 1. capability report ----------
+  function canCaptureStream() {
+    var c = document.createElement('canvas');
+    return typeof c.captureStream === 'function';
+  }
+  function pickMime() {
+    var cands = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4',
+                 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+    for (var i = 0; i < cands.length; i++) { if (MediaRecorder.isTypeSupported(cands[i])) return cands[i]; }
+    return '';
+  }
+  var hasMR = !!window.MediaRecorder;
+  var hasCS = canCaptureStream();
+  var mime = pickMime();
+  var hasMSD = !!(AC && AC.prototype && typeof AC.prototype.createMediaStreamDestination === 'function');
+  var hasTTS = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+
+  var rows = [
+    ['Web Audio (AudioContext)', !!AC],
+    ['AudioContext.createMediaStreamDestination', hasMSD],
+    ['speechSynthesis (voices)', hasTTS],
+    ['canvas.captureStream()', hasCS],
+    ['MediaRecorder', hasMR],
+    ['MediaRecorder accepts video/mp4', hasMR && typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported('video/mp4')],
+    ['MediaRecorder accepts video/webm', hasMR && typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported('video/webm')],
+    ['js/audio.js loaded', !!window.CartoonAudio],
+    ['js/renderer.js loaded', !!window.Renderer]
+  ];
+  var html = '';
+  rows.forEach(function (r) {
+    html += '<tr><td>' + r[0] + '</td><td class="' + (r[1] ? 'yes">YES' : 'no">NO') + '</td></tr>';
+  });
+  html += '<tr><td>Format this browser will record</td><td><b>' + (mime || 'none available') + '</b></td></tr>';
+  $('caps').innerHTML = html;
+
+  var canVideo = hasCS && hasMR && !!mime;
+  var v = $('verdict');
+  if (canVideo) {
+    v.className = 'verdict v-ok';
+    v.textContent = 'Video export is possible in this browser' +
+      (hasMSD ? ', with sound effects and ambience included.' : ', but SILENTLY — no audio mixing available.');
+  } else {
+    v.className = 'verdict v-bad';
+    v.textContent = 'Video export is NOT possible in this browser. ' +
+      (!hasCS ? 'canvas.captureStream() is missing. ' : '') +
+      (!hasMR ? 'MediaRecorder is missing. ' : '') +
+      (hasCS && hasMR && !mime ? 'No recordable video format is offered. ' : '') +
+      'The sound test in section 2 still works, and the cartoon itself is unaffected.';
+  }
+  log('capabilities: captureStream=' + hasCS + ' MediaRecorder=' + hasMR + ' mime=' + (mime || 'none') +
+      ' audioMix=' + hasMSD + ' speech=' + hasTTS);
+
+  // ---------- 2. sound test ----------
+  var audio = window.CartoonAudio;
+  function ready() {
+    if (!audio) { fail('js/audio.js did not load, so there is no sound to test.'); return false; }
+    if (!audio.supported().webAudio) { fail('This browser has no Web Audio support.'); return false; }
+    audio.unlock();                                  // every button press is a user gesture
+    return true;
+  }
+  function soundNote() {
+    var n = $('soundnote'); if (!n || !audio) return;
+    var s = audio.state();
+    n.textContent = !s.webAudio ? 'This browser cannot make sound effects.'
+      : s.muted ? 'Sound is off.'
+      : 'Sound ready. If it stays silent, check the iPad volume and mute switch.';
+  }
+  function mkButtons(host, names, onClick) {
+    names.forEach(function (name) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = name;
+      b.addEventListener('click', function () { if (ready()) { onClick(name); soundNote(); } });
+      host.appendChild(b);
+    });
+  }
+  if (audio) {
+    mkButtons($('sfxBtns'), audio.effects(), function (n) { log('effect: ' + n); audio.preview(n); });
+    mkButtons($('bedBtns'), audio.beds(), function (n) { log('ambience: ' + n + ' (5s)'); audio.previewBed(n, 5); });
+  } else {
+    $('sfxBtns').textContent = 'js/audio.js did not load.';
+  }
+  $('sayBtn').addEventListener('click', function () {
+    if (!audio) return fail('js/audio.js did not load.');
+    audio.unlock();
+    var ok = audio.say('Hello! This is a test of the cartoon voice.');
+    log('voice test: ' + (ok ? 'spoken' : 'speechSynthesis is not available in this browser'));
+    if (!ok) fail('This browser has no built-in voice, so dialogue cannot be spoken.');
+  });
+
+  var muteBtn = $('mute'), vol = $('volume');
+  muteBtn.addEventListener('click', function () {
+    if (!audio) return;
+    var m = audio.setMuted(!audio.state().muted);
+    muteBtn.setAttribute('aria-pressed', m ? 'true' : 'false');
+    muteBtn.textContent = m ? '🔇 Sound off' : '🔊 Sound on';
+    soundNote(); log('mute: ' + (m ? 'on' : 'off'));
+  });
+  vol.addEventListener('input', function () { if (audio) audio.setVolume(Number(vol.value) / 100); });
+  if (audio) audio.setVolume(Number(vol.value) / 100);
+  soundNote();
+
+  // ---------- 3. record ----------
+  var rec = null, chunks = [], recording = false, rafId = 0;
+  var audioRec = null, audioChunks = [], lastTimeline = null;
+  var canvas = $('stage'), ctx2d = canvas.getContext('2d');
+
+  function ext(m) { return /mp4/i.test(m || '') ? 'mp4' : 'webm'; }
+
+  // Turn the timeline into a flat list of the moments we want to check: who was
+  // supposed to speak, and which sound effect (if any) was supposed to hit.
+  function flatten(t) {
+    var out = [];
+    t.scenes.forEach(function (sc) {
+      sc.beats.forEach(function (b) {
+        out.push({ start: b.start, end: b.start + b.dur, who: b.who || '', bg: sc.bg,
+                   say: String(b.say || ''), sfx: b.sfx || '' });
+      });
+    });
+    return out;
+  }
+
+  $('stopBtn').addEventListener('click', function () { if (recording) finishRecording('stopped early'); });
+
+  function finishRecording(reason) {
+    if (!recording) return;
+    recording = false;
+    cancelAnimationFrame(rafId);
+    if (audio) audio.stop();
+    try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) { log('stop error: ' + e.message); }
+    try { if (audioRec && audioRec.state !== 'inactive') audioRec.stop(); } catch (e) { /* already stopped */ }
+    log('recording ' + reason);
+  }
+
+  // ---------- 3b. measure what the recording actually contains -------------
+  // The recorder's audio track is recorded a second time on its own, decoded,
+  // and measured against the cartoon timeline. This reports real numbers from
+  // YOUR browser instead of anybody's guess. Nothing here is offered for
+  // download - it exists only to prove what is and is not in the audio.
+  function verifyAudio(blob) {
+    var host = $('verify');
+    if (!host) return;
+    var AC2 = window.AudioContext || window.webkitAudioContext;
+    if (!AC2 || !lastTimeline || !lastTimeline.length) {
+      host.textContent = 'Could not check the recording: no Web Audio or no timeline.'; return;
+    }
+    var reported = false;
+    var read = blob.arrayBuffer ? blob.arrayBuffer() : Promise.reject(new Error('no arrayBuffer()'));
+    read.then(function (ab) {
+      var vctx = new AC2();
+      function shut() { try { if (vctx.close) vctx.close(); } catch (e) { /* ignore */ } }
+      // Safari supports the callback form; newer browsers return a promise. Ask
+      // for both and let the first one win, so no browser is left unmeasured.
+      var done = vctx.decodeAudioData(ab, function (buf) { report(buf); shut(); },
+        function (e) { if (!reported) host.textContent = 'Could not decode the recorded audio: ' + (e && e.message ? e.message : e); });
+      if (done && done.then) done.then(function (buf) { report(buf); shut(); }).catch(function () { /* callback form already reported */ });
+    }).catch(function (e) {
+      host.textContent = 'Could not read the recorded audio: ' + e.message;
+    });
+
+    function report(buf) {
+      if (reported) return;                 // guard: only the first decode counts
+      reported = true;
+      var d = buf.getChannelData(0), sr = buf.sampleRate, n = d.length;
+      var peak = 0;
+      for (var i = 0; i < n; i++) { var v = Math.abs(d[i]); if (v > peak) peak = v; }
+      function rms(t0, t1) {
+        var a = Math.max(0, Math.floor(t0 * sr)), b = Math.min(n, Math.ceil(t1 * sr));
+        if (b <= a) return 0;
+        var s = 0; for (var j = a; j < b; j++) s += d[j] * d[j];
+        return Math.sqrt(s / (b - a));
+      }
+      // Estimate the ambience bed from the QUIETEST SHORT SLICES of the whole
+      // file, not from whole dialogue windows. The bed never stops, but speech
+      // does - between words and between lines - so the quiet slices are
+      // bed-only even on a day when voices are present. (Averaging whole beat
+      // windows is not safe: if every window contained speech, the estimate
+      // would rise with it and the check would report "nothing new".)
+      var quiet = [];
+      var HOP = Math.max(1, Math.floor(0.15 * sr));
+      for (var s0 = 0; s0 + HOP <= n; s0 += HOP) {
+        var ss = 0;
+        for (var j2 = s0; j2 < s0 + HOP; j2++) ss += d[j2] * d[j2];
+        quiet.push(Math.sqrt(ss / HOP));
+      }
+      quiet.sort(function (a, b) { return a - b; });
+      // 5th percentile, not the absolute minimum: one near-silent slice (a fade,
+      // a gap between scenes) would otherwise drag the whole estimate to zero.
+      var floor = quiet.length ? quiet[Math.min(quiet.length - 1, Math.floor(quiet.length * 0.05))] : 0;
+      var loud = function (b) { return rms(b.start, b.end) > floor * 2 + 0.01; };
+
+      var sfxBeats = lastTimeline.filter(function (b) { return !!b.sfx; });
+      var sfxLoud = sfxBeats.filter(loud).length;
+      var ambienceOn = floor > 0.002;
+      // Windows that are louder than the ambience bed but have NO effect scheduled
+      // in them. Today that must be zero, because nothing but effects and ambience
+      // is ever connected to the recorder. The day a capturable voice engine is
+      // wired in, this number becomes the proof that dialogue reached the file.
+      var unexplained = lastTimeline.filter(function (b) { return !b.sfx && loud(b); }).length;
+      var spoken = lastTimeline.filter(function (b) { return b.say && b.say.trim(); }).length;
+
+      var rows = lastTimeline.map(function (b) {
+        var r = rms(b.start, b.end);
+        return '<tr><td>' + b.start.toFixed(2) + 's</td><td>' + (b.who || '—') + '</td>' +
+          '<td>' + (b.sfx || '—') + '</td><td>' + (b.say ? '“' + b.say.slice(0, 34) + (b.say.length > 34 ? '…' : '') + '”' : '—') + '</td>' +
+          '<td style="text-align:right">' + r.toFixed(4) + '</td><td>' + (loud(b) ? 'loud' : 'bed only') + '</td></tr>';
+      }).join('');
+
+      host.innerHTML =
+        '<b>Measured audio taken from the recording itself</b><br>' +
+        'length ' + buf.duration.toFixed(2) + 's · ' + sr + ' Hz · peak ' + peak.toFixed(4) +
+        ' · ambience bed ' + floor.toFixed(4) + '<br>' +
+        'sound effects: ' + sfxLoud + ' of ' + sfxBeats.length + ' expected hits are audible → ' +
+        (sfxBeats.length && sfxLoud === sfxBeats.length ? '✅ all present' : (sfxLoud ? '⚠️ partly present' : '❌ missing')) + '<br>' +
+        'scene ambience: ' + (ambienceOn ? '✅ present (bed RMS ' + floor.toFixed(4) + ')' : '❌ missing') + '<br>' +
+        'spoken dialogue: ' + (unexplained
+          ? '✅ ' + unexplained + ' window(s) louder than the bed with no effect scheduled — voices ARE reaching the recording'
+          : '❌ <b>not present.</b> ' + spoken + ' line(s) were spoken aloud through <code>speechSynthesis</code>, ' +
+            'which creates no Web Audio node, so none of them can reach a recorder in any browser. ' +
+            'Every loud window above is accounted for by a scheduled sound effect.') +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:6px">' +
+        '<tr style="text-align:left"><th>time</th><th>who</th><th>sfx</th><th>line</th><th style="text-align:right">RMS</th><th>verdict</th></tr>' +
+        rows + '</table>';
+      log('verify: dur=' + buf.duration.toFixed(2) + ' peak=' + peak.toFixed(4) +
+        ' bed=' + floor.toFixed(4) + ' sfx=' + sfxLoud + '/' + sfxBeats.length +
+        ' ambience=' + (ambienceOn ? 'yes' : 'no') + ' dialogueWindows=' + unexplained + '/' + spoken);
+    }
+  }
+
+  $('recBtn').addEventListener('click', function () {
+    if (recording) return;
+    $('dl').innerHTML = '';
+    if (!window.Renderer || !window.WriterFree) return fail('The cartoon modules did not load.');
+    var story = $('story').value.trim();
+    if (!story) return fail('Please type a story to record.');
+    var script = WriterFree.write(story);
+    var problems = ScriptFormat.validate(script);
+    if (problems.length) return fail(problems.join(' '));
+
+    // Recorded dialogue: unlock the audio inside THIS click (iOS needs the
+    // gesture), then make sure the voice clips are decoded before the timeline
+    // is built. If they are still on their way, wait and re-run once.
+    if (window.CartoonAudio && CartoonAudio.unlock) CartoonAudio.unlock();
+    if (window.CartoonAudio && CartoonAudio.loadVoices && CartoonAudio.voices && !CartoonAudio.voices().done) {
+      log('loading recorded voices…');
+      return CartoonAudio.loadVoices('voices/bunty/manifest.json').catch(function () {}).then(function () { $('recBtn').click(); });
+    }
+    var said = 0, unvoiced = 0;
+    if (window.CartoonAudio && CartoonAudio.stamp) {
+      var n = CartoonAudio.stamp(script);
+      if (n) log('recorded dialogue attached to ' + n + ' lines');
+    }
+    script.scenes.forEach(function (sc) { sc.beats.forEach(function (b) { if (b.say) { said++; if (!b.voiceBuf) unvoiced++; } }); });
+
+    if (!canVideo) {
+      return fail('This browser cannot record video. See section 1 for exactly what is missing.');
+    }
+    try {
+      var tl = Renderer.build(script);
+      // Size the canvas BEFORE captureStream, then drive the animation with the
+      // exported drawAt(). This avoids renderer.js resizing the canvas mid-capture.
+      canvas.width = Renderer.W; canvas.height = Renderer.H;
+
+      var stream = canvas.captureStream(30);
+      var mixed = false;
+      if (audio && hasMSD) {
+        audio.unlock();
+        var dest = audio.tap();
+        if (dest && dest.stream && dest.stream.getAudioTracks) {
+          dest.stream.getAudioTracks().forEach(function (tr) { stream.addTrack(tr); mixed = true; });
+        }
+      }
+      log('capture started: ' + (mixed ? 'video + audio' : 'VIDEO ONLY (no audio track)'));
+
+      // Second recorder on the audio track alone, used only by verifyAudio() to
+      // measure what really ended up in the export. It is never offered as a file.
+      audioChunks = [];
+      if (dest && dest.stream && window.MediaRecorder) {
+        try {
+          audioRec = new MediaRecorder(dest.stream);
+          audioRec.ondataavailable = function (e) { if (e.data && e.data.size) audioChunks.push(e.data); };
+          audioRec.onstop = function () {
+            if (audioChunks.length) verifyAudio(new Blob(audioChunks, { type: audioRec.mimeType || 'audio/webm' }));
+          };
+          audioRec.start(250);
+          log('audio verifier armed');
+        } catch (e) { audioRec = null; log('audio verifier unavailable: ' + e.message); }
+      } else { audioRec = null; }
+
+      chunks = [];
+      rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : undefined);
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onerror = function (e) { log('MediaRecorder error: ' + ((e && e.name) || 'unknown')); finishRecording('failed'); };
+      rec.onstop = function () {
+        var blob = new Blob(chunks, { type: mime || 'video/webm' });
+        var url = URL.createObjectURL(blob);
+        var name = 'cartoon-' + Date.now() + '.' + ext(mime);
+        // Say plainly what is INSIDE the file, at the moment of download, so a
+        // recording without dialogue can never be mistaken for a finished one.
+        var inside = mixed
+          ? 'picture ✅ · sound effects ✅ · scene ambience ✅ · ' +
+            (said && !unvoiced
+              ? '<b>spoken dialogue ✅ (recorded voices)</b>'
+              : 'spoken dialogue ' + (said - unvoiced) + '/' + said +
+                ' lines recorded ✅ — <b>' + unvoiced + ' line(s) fall back to the built-in voice, which the browser cannot record ❌</b>')
+          : 'picture ✅ · <b>no audio at all ❌</b>';
+        $('dl').innerHTML = 'Recorded ' + (blob.size / 1048576).toFixed(2) + ' MB — ' +
+          '<a href="' + url + '" download="' + name + '">Download ' + name + '</a>' +
+          '<br><span style="display:inline-block;margin-top:6px">' + inside + '</span>';
+        var v = $('verify');
+        if (v) v.innerHTML = mixed ? 'Measuring the audio that went into this file…'
+                                   : 'No audio track was recorded, so there is nothing to measure.';
+        log('blob ready: ' + blob.size + ' bytes, type ' + (mime || 'video/webm') + ' — ' +
+          (mixed ? 'audio mixed in (effects + ambience only)' : 'SILENT'));
+      };
+
+      recording = true;
+      rec.start(250);
+      var t0 = performance.now();
+      var started = null;
+      if (audio) { try { started = audio.start(script, t0); } catch (e) { log('audio start failed: ' + e.message); } }
+
+      // --- one clock for picture AND sound ---------------------------------
+      // Before this, the picture ran on performance.now() while the effects ran
+      // on the AudioContext clock with a 50 ms lead-in. Two independent clocks
+      // means every recording was about 50 ms out of step. If we know where the
+      // audio timeline began we drive the picture from that same clock.
+      var actx = null, base = null;
+      if (started && typeof started.base === 'number' && audio && audio.context) {
+        actx = audio.context(); base = started.base;
+      }
+      function pictureTime(now) {
+        // only trust the audio clock while it is actually running; a suspended
+        // iOS context never advances and would freeze the recording forever
+        if (actx && base !== null && actx.state === 'running') return actx.currentTime - base;
+        return (now - t0) / 1000;
+      }
+      lastTimeline = flatten(tl);
+      log('recording ' + tl.total.toFixed(1) + 's of cartoon… (' +
+        (base !== null ? 'picture locked to the audio clock' : 'picture on the performance clock') + ')');
+
+      (function loop(now) {
+        if (!recording) return;
+        // hard failsafe: never run away if a clock stops advancing
+        if ((now - t0) / 1000 > tl.total + 5) { fail('Recording ran too long, stopping.'); finishRecording('timeout'); return; }
+        var t = pictureTime(now);
+        if (t < 0) { rafId = requestAnimationFrame(loop); return; }   // audio lead-in: wait one frame
+        if (t >= tl.total) { Renderer.drawAt(ctx2d, tl, tl.total - 0.01); finishRecording('finished'); return; }
+        try { Renderer.drawAt(ctx2d, tl, t); } catch (e) { fail('Drawing failed: ' + e.message); finishRecording('draw error'); return; }
+        rafId = requestAnimationFrame(loop);
+      })(t0);
+    } catch (e) {
+      recording = false;
+      fail('Recording failed: ' + e.message);
+      log('exception: ' + e.message);
+    }
+  });
+
+  if (window.Renderer && window.Scenes) Scenes.draw(ctx2d, 'park', 0);
+  // One tap fills the box with the first full movie, so nobody has to
+  // copy-paste a story on an iPad.
+  var BUNTY = [
+    'scene: park',
+    'Bunty the boy walked happily through his sunny garden.',
+    'Chickie the tiny baby chick cried under the rose bush.',
+    'Chickie: Help! Where is my mommy?',
+    'Bunty: Oh! Hello, little one. Why are you crying?',
+    'Chickie: I cannot find my mommy. I am lost!',
+    'Bunty: Do not worry. I will help you find her.',
+    'scene: park',
+    'Bunty gently looked around the garden. He checked behind the bushes and under the trees.',
+    'Bunty: Do you remember where you last saw your mommy?',
+    'Chickie: We were near the big tree. Then the wind blew, and I fell down.',
+    'Bunty: Then let us go to the big tree together!',
+    'Chickie: I am scared.',
+    'Bunty: Stay close to me. Everything will be okay.',
+    'scene: park',
+    'Bunty and Chickie reached the big tree. Suddenly they heard a loud chirping sound from above.',
+    'Chickie: Look! My mommy! I am here!',
+    'Mimi the big blue bird flew down joyfully and landed beside her baby.',
+    'Bunty: Your little one is safe with you now!',
+    'Chickie: I missed you so much!',
+    'Mimi lovingly hugged her little baby with her wings.',
+    'scene: park',
+    'Chickie: Thank you, Bunty! You are my best friend!',
+    'Bunty: You are welcome! Friends always help each other.',
+    'Mimi and her baby returned safely to their nest. Bunty walked home feeling happy.',
+    'Bunty: What a wonderful day! It feels so good to help someone!',
+    'And from that day, Bunty and Chickie became special friends.'
+  ].join('\n');
+  var lb = $('loadBunty'); if (lb) lb.addEventListener('click', function () { $('story').value = BUNTY; log('Bunty story loaded - press Record when ready'); });
+  // Warm the recorded voice clips in the background, so pressing Record never
+  // has to wait for them (and iOS keeps its unlock gesture for the button).
+  if (window.CartoonAudio && CartoonAudio.loadVoices) CartoonAudio.loadVoices('voices/bunty/manifest.json');
+  log('test page ready');
+})();
+</script>
+</body>
+</html>
