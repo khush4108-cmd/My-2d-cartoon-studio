@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>My 2D Cartoon Studio</title>
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 <script>
   // Shows any problem on screen, so nothing fails silently.
   window.showError = function (msg) {
@@ -20,25 +20,80 @@
 <body>
 <main>
   <h1>My 2D Cartoon Studio</h1>
-  <p class="sub">Type a story, press one button, and watch your cartoon.</p>
+  <p class="sub">Type a story → press one button → watch the cartoon → save it as a video (MP4).</p>
+
   <label for="story">Your story</label>
-  <textarea id="story">Mia and Leo walked into the park. "Look, a giant duck!" said Mia. "Oh no, it is chasing us!" shouted Leo. They ran past the pond and Leo fell into the mud. "Ha ha, you look funny!" laughed Mia. At night they went home to the house. "That was the best day ever," said Leo.</textarea>
+  <textarea id="story">Scene: jungle
+Narrator: Deep in the jungle, Tom is chasing Jerry again.
+Tom: Come back here, you little mouse! (angry, run)
+Jerry: Catch me if you can! (smug, run)
+Narrator: Jerry hides behind a big banana tree.
+Tom: Where did he go? (confused)
+Narrator: A coconut falls on Tom's head. CRASH!
+Tom: Oww! That was not funny! (angry)
+Jerry: Ha ha ha! (happy, dance)
+Narrator: Tom picks up a giant hammer.
+Tom: Now I will get you! (determined, pounce)
+Narrator: Jerry slips on a banana peel and runs away.
+Jerry: Wheee! See you later, Tom! (excited, run)
+Tom: I will get you tomorrow! (angry)</textarea>
+
   <div class="row">
-    <button id="make" class="go">Make my cartoon</button>
-    <label class="ai"><input type="checkbox" disabled> AI writer (coming in Batch 5)</label>
+    <button id="make" class="go">▶ Make my cartoon</button>
+    <button id="replay" class="alt">↺ Play again</button>
+    <button id="export" class="alt">⬇ Save video (MP4)</button>
+    <button id="share" class="alt" hidden>📤 Share</button>
+    <label class="ai"><input type="checkbox" id="silent"> Silent preview</label>
+    <label class="ai"><input type="checkbox" id="fast"> Fast recording (no sound)</label>
   </div>
+
+  <div class="progress"><div id="bar"></div></div>
+  <p id="status" class="status" role="status"></p>
+
+  <div class="ideas">
+    <span>Try a ready story:</span>
+    <button data-story="jungle" class="tiny">Jungle chase</button>
+    <button data-story="chase" class="tiny">Bone chase</button>
+    <button data-story="park" class="tiny">Park story</button>
+  </div>
+
   <div id="errors" role="alert"></div>
   <div class="stage"><canvas id="stage" width="1280" height="720"></canvas></div>
-  <div class="row"><button id="replay" class="go">Play again</button></div>
+  <video id="preview" controls playsinline hidden></video>
+
+
+  <details class="guide" open>
+    <summary><b>Cartoon kaise banti hai? (5 steps — yeh app yahi karta hai)</b></summary>
+    <ol>
+      <li><b>Story / Script</b> — pehle kahani likhte hain. Har line: <code>Naam: dialogue (mood, action)</code>. Poori video ki neev yahi hai.</li>
+      <li><b>Storyboard &amp; Layout</b> — kaunsi scene kahan hogi (jungle, park, room…), kaun left me khada hoga, camera kya karega.</li>
+      <li><b>Character design + Rig</b> — har character ka look fix (skin, baal, kapde). Uske body parts (sir, haath, pair) ko “rig” se hilaya jata hai — yahi <code>characters.js</code> + <code>acting.js</code> karte hain.</li>
+      <li><b>Animation (poses)</b> — har dialogue ke liye mood + action se pose banti hai, aur time ke saath woh move karti hai (walk cycle, squash-stretch, blink, lip-flap).</li>
+      <li><b>Sound + Edit + Export</b> — background music, comedy sound effects (CRASH! BOING!), cartoon awaaz, phir video file (MP4) me save.</li>
+    </ol>
+    <p><b>Tom &amp; Jerry wala “feel” 5 cheezon se aata hai:</b> (1) <i>squash &amp; stretch</i> — jump par body stretch, landing par dabna; (2) <i>anticipation</i> — action se pehle chhota sa peeche jhukna; (3) <i>reaction shot</i> — ek maar khata hai, doosra haste hue dikhta hai; (4) <i>sound words</i> — CRASH, BONK, BOING screen par; (5) <i>timing</i> — ek frame ka rukna = comedy.</p>
+    <p><b>Yahan tips:</b> “Run!”, “jump”, “fell”, “cake”, “hammer”, “pie”, “dance” jaise shabd likho — app khud action, prop aur sound effect laga deta hai.
+    Acting hint se control karo: <code>(angry, pounce)</code>, <code>(happy, dance)</code>, <code>(scared, run)</code>.
+    Naya scene: <code>Scene: beach</code> — jungle, park, room, night, beach, street, school.</p>
+    <p><b>Apna drawing add karna hai?</b> <code>js/characters.js</code> me drawing badlo (ya naya character style banao), <code>js/scenes.js</code> me naya background — app phir bhi wahi video banayega.</p>
+  </details>
+  <details class="guide">
+    <summary><b>Studio words (animation ki dictionary — Hinglish)</b></summary>
+    <dl id="glossary" class="glossary"></dl>
+  </details>
   <section id="result"></section>
-  <p class="note">Test page: <a href="export-test.html">Video + sound export test</a></p>
+  <p class="note">How to write a script: <code>Tom: Come back here! (angry, run)</code> — name, words, and acting hints in brackets.
+  Start a new place with <code>Scene: jungle</code> (jungle, park, room, night, beach, street, school).</p>
 </main>
-<script src="js/script-format.js?v=4"></script>
-<script src="js/writer-free.js?v=4"></script>
-<script src="js/characters.js?v=4"></script>
-<script src="js/acting.js?v=4"></script>
-<script src="js/scenes.js?v=4"></script>
-<script src="js/renderer.js?v=4"></script>
-<script src="js/main.js?v=4"></script>
+<script src="js/script-format.js?v=5"></script>
+<script src="js/acting.js?v=5"></script>
+<script src="js/characters.js?v=5"></script>
+<script src="js/scenes.js?v=5"></script>
+<script src="js/sound.js?v=5"></script>
+<script src="js/writer-free.js?v=5"></script>
+<script src="js/renderer.js?v=5"></script>
+<script src="js/glossary.js?v=5"></script>
+<script src="js/exporter.js?v=5"></script>
+<script src="js/main.js?v=5"></script>
 </body>
 </html>
