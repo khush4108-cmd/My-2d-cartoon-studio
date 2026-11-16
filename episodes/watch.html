@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Watch the cartoons — My 2D Cartoon Studio</title>
+<style>
+  :root{--ink:#22204a;--paper:#fff8e7;--pop:#ff5d73;--sun:#ffc93c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.5 "Trebuchet MS",Verdana,sans-serif}
+  main{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  .card{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:14px;margin-top:18px;box-shadow:5px 5px 0 var(--ink)}
+  .card h2{margin:0 0 4px;font-size:1.15rem}
+  .meta{font-size:.92rem;opacity:.75;margin:0 0 10px}
+  video{display:block;width:100%;background:#000;border-radius:10px}
+  .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  a.btn{display:inline-block;font-weight:bold;text-decoration:none;color:var(--ink);background:var(--sun);
+        border:3px solid var(--ink);border-radius:10px;padding:8px 14px;box-shadow:3px 3px 0 var(--ink)}
+  a.btn.p{background:var(--pop);color:#fff}
+  .hint{font-size:.9rem;opacity:.8;margin-top:10px}
+  p.small{font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>🎬 Watch the cartoons</h1>
+  <p class="meta">Original episodes (Tom &amp; Jerry style slapstick, apne characters).
+    Screen par na chale to niche se file download karke gallery/VLC me kholo.</p>
+
+  <div class="card">
+    <h2>Episode 1 — Chiku vs Bantu</h2>
+    <p class="meta">Jungle • Bandar vs Bhalu • 1 min 11 sec • sound ke saath</p>
+    <video controls playsinline preload="metadata" poster="poster-chiku.png">
+      <source src="web/chiku-vs-bantu-phone.mp4" type="video/mp4">
+      <source src="web/chiku-vs-bantu.mp4" type="video/mp4">
+      Aapka browser video nahi chala sakta — file download karke dekho.
+    </video>
+    <div class="links">
+      <a class="btn p" href="web/chiku-vs-bantu-phone.mp4" download="chiku-vs-bantu.mp4">⬇ Download (phone, 4.6 MB)</a>
+      <a class="btn" href="web/chiku-vs-bantu.mp4" download="chiku-vs-bantu-960.mp4">⬇ HD 960p (3.1 MB)</a>
+      <a class="btn" href="chiku-vs-bantu.mp4" download>⬇ Full HD 720p (12.3 MB)</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Episode 2 — Bruno vs Sheru</h2>
+    <p class="meta">Street • Kutta vs Badi Billee • 54 sec • sound ke saath</p>
+    <video controls playsinline preload="metadata">
+      <source src="web/bruno-vs-sheru-phone.mp4" type="video/mp4">
+      <source src="web/bruno-vs-sheru.mp4" type="video/mp4">
+      Aapka browser video nahi chala sakta — file download karke dekho.
+    </video>
+    <div class="links">
+      <a class="btn p" href="web/bruno-vs-sheru-phone.mp4" download="bruno-vs-sheru.mp4">⬇ Download (phone, 4.2 MB)</a>
+      <a class="btn" href="web/bruno-vs-sheru.mp4" download="bruno-vs-sheru-960.mp4">⬇ HD 960p (2.8 MB)</a>
+      <a class="btn" href="bruno-vs-sheru.mp4" download>⬇ Full HD 720p (10.3 MB)</a>
+    </div>
+  </div>
+
+  <p class="hint">Apni video banani hai? <a href="../index.html">Studio kholo</a> — story type karo, "Make my cartoon",
+    phir "Save video (MP4)". Phone par download hone ke baad gallery/WhatsApp me chali jayegi.</p>
+</main>
+</body>
+</html>
