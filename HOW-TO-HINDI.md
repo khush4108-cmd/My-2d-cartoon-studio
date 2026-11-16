@@ -40,6 +40,32 @@ Jerry: Ha ha ha! (happy, dance)
 5. **Cartoon mumble voice** — har character ki apni awaaz (pitch uske naam se aata hai), "bloopers" style gibberish.
 6. **Iris wipe + shake** — scene change par gol iris close/open, dhamake par camera shake.
 
+## Episode videos (terminal render)
+
+`episodes/` folder me do ready-made original episodes hain (text + MP4):
+
+| Episode | File | Length |
+|---|---|---|
+| Chiku vs Bantu (jungle, monkey vs bear) | `episodes/chiku-vs-bantu.mp4` | 71 sec |
+| Bruno vs Sheru (street, dog vs cat) | `episodes/bruno-vs-sheru.mp4` | 54 sec |
+
+Dobara render karna ho to:
+
+```bash
+cd tools
+npm install                      # ek baar: @napi-rs/canvas
+node render-video.js --story ../episodes/chiku-vs-bantu.txt --out ../episodes/chiku-vs-bantu.mp4
+```
+
+Yeh renderer wahi `js/` files use karta hai (same animation engine), frames ko `ffmpeg` se MP4 me daalta hai
+aur saath me khud ka banaya audio (music + SFX + cartoon awaaz) mix karta hai. Text badal kar nayi episode ban jayegi.
+
+## Animal characters (Tom & Jerry style)
+
+Script me naam ke saath jaanwar likho, character usi species me ban jayega:
+`Chiku the monkey`, `Bantu the bear`, `Sheru the cat`, `Jerry the mouse`, `Bruno the dog`, `Bunty the rabbit`, `Raja the lion` — ya naam hi kaafi hai (Chiku = monkey, Bantu = bear, Sheru = cat, Bruno = dog).
+`person` default hai. Species list: `person, monkey, bear, cat, mouse, dog, rabbit, lion` (`js/characters.js`).
+
 ## Export
 
 - **Save video (MP4)** → real-time record (sound ke saath). Chrome/Safari MP4 dete hain, baaki browsers WebM.

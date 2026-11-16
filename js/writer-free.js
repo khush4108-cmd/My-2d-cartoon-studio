@@ -99,6 +99,15 @@ window.WriterFree = (function () {
   }
 
   // build the cast: each name gets a look seed + build hints from the words around it
+  const SPECIES_RULES = [
+    ['monkey', /\b(monkey|ape|chimp|chiku)\b/i],
+    ['bear', /\b(bear|bantu|panda)\b/i],
+    ['cat', /\b(cat|kitten|puss|sheru|billa)\b/i],
+    ['mouse', /\b(mouse|rat|jerry|chuha)\b/i],
+    ['dog', /\b(dog|puppy|kutta|bruno|tommy)\b/i],
+    ['rabbit', /\b(rabbit|bunny|hare|bunty)\b/i],
+    ['lion', /\b(lion|sher|tiger|bagh)\b/i]
+  ];
   function castOf(scenes, text) {
     const names = [];
     scenes.forEach(sc => sc.beats.forEach(b => { if (b.who !== 'Narrator' && !names.includes(b.who)) names.push(b.who); }));
@@ -106,6 +115,21 @@ window.WriterFree = (function () {
     return names.map(n => {
       const ln = n.toLowerCase();
       const hint = {};
+      // species: from the name itself ("Bantu the big bear") or from words near the name
+      const species = (() => {
+        for (const [sp, re] of SPECIES_RULES) if (re.test(ln)) return sp;
+        for (const [sp, re] of SPECIES_RULES) {
+          const near = new RegExp('\\b' + ln + '\\b[^.!?]{0,40}\\b(' + ['monkey', 'bear', 'cat', 'mouse', 'dog', 'rabbit', 'lion', 'tiger'].join('|') + ')\\b', 'i');
+          const m2 = text.match(near);
+          if (m2) {
+            const word = m2[1].toLowerCase();
+            for (const [s2, re2] of SPECIES_RULES) if (re2.test(word)) return s2;
+          }
+          if (re.test(ln)) return sp;
+        }
+        return 'person';
+      })();
+      if (species !== 'person') hint.species = species;
       // look hints only from the words describing this character IN the script
       const desc = scenes.flatMap(sc => sc.beats.filter(b => b.who === n).map(b => b.say)).join(' ').toLowerCase();
       // "Tom is a big bear", "Jerry looks tiny" -> only with a describing verb close by
@@ -121,7 +145,7 @@ window.WriterFree = (function () {
       if (after('glasses|spectacles|nerd') || /\b(glasses|spectacles|nerd)\b/.test(desc)) hint.glasses = true;
       if (after('beard|moustache|mustache|pirate|old') || /\b(beard|moustache|mustache|pirate)\b/.test(desc)) hint.beard = true;
       if (after('cape|superhero|hero|super') || /\b(cape|superhero|hero)\b/.test(desc)) hint.cape = true;
-      return { name: n, look: hint };
+      return { name: n, species, look: hint };
     });
   }
 

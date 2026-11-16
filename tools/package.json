@@ -1,0 +1,13 @@
+{
+  "name": "cartoon-video-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Offline renderer: turns the studio's canvas animation into a real MP4 video with sound. Optional - only needed for terminal rendering.",
+  "scripts": {
+    "render": "node render-video.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
+    "ffmpeg-static": "^5.2.0"
+  }
+}

@@ -18,12 +18,18 @@ window.Renderer = (function () {
       while (sigs.has(sig(L)) && k < 8) L = Characters.look(name + ' '.repeat(++k), extra);
       sigs.add(sig(L)); return L;
     };
-    (script.characters || []).forEach(c => { looks[c.name] = unique(c.name, c.look); });
+    const tops = new Set();
+    const distinctTop = L => {                              // and they never wear the same shirt colour
+      let k = 0;
+      while (tops.has(L.top) && k < 10) { L.top = Characters.look(L.name + ' #' + (++k)).top; }
+      tops.add(L.top); return L;
+    };
+    (script.characters || []).forEach(c => { looks[c.name] = distinctTop(unique(c.name, c.look)); });
     let t = TITLE;
     const scenes = (script.scenes || []).map((sc, si) => {
       const names = [];
       sc.beats.forEach(b => { if (b.who !== 'Narrator' && !names.includes(b.who)) names.push(b.who); });
-      names.forEach(n => { if (!looks[n]) looks[n] = unique(n); });
+      names.forEach(n => { if (!looks[n]) looks[n] = distinctTop(unique(n)); });
       const beats = sc.beats.map(b => {
         const o = Object.assign({}, b, { start: t, dur: durOf(b) });
         t += o.dur;
