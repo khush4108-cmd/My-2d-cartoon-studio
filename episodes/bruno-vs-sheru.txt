@@ -1,0 +1,17 @@
+Scene: street
+Narrator: A hot afternoon on the street. Bruno the dog steals a bone from Sheru the big cat.
+Bruno: This bone is mine now! (smug, run)
+Sheru: Come back here, you silly dog! (angry, run)
+Narrator: Bruno crashes into a fruit shop. CRASH!
+Bruno: Oh no, not the bananas! (scared, cower)
+Sheru: Ha ha! You look like a fruit salad! (happy, laugh)
+Narrator: Sheru picks up a bucket of water.
+Sheru: Take this, Bruno! (determined, pounce)
+Narrator: SPLAT! The bucket lands on Sheru's own head.
+Sheru: Brrr! I am all wet! (surprised, jump)
+Bruno: Now who is funny? (smug, dance)
+Scene: park
+Narrator: At sunset, both friends sit on a bench at the park.
+Sheru: Friends are better than bones. (happy)
+Bruno: And bones are better than baths! (excited, dance)
+Narrator: They laugh together. THE END.

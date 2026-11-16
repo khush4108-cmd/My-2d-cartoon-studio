@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Watch the cartoons — My 2D Cartoon Studio</title>
+<style>
+  :root{--ink:#22204a;--paper:#fff8e7;--pop:#ff5d73;--sun:#ffc93c;--mint:#5fd3b0}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:rgba(255,201,60,.35)}
+  body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.55 -apple-system,BlinkMacSystemFont,"Trebuchet MS",Verdana,sans-serif;
+       padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  main{max-width:900px;margin:0 auto;padding:18px 15px 70px}
+  h1{font-size:1.75rem;margin:0 0 4px}
+  .lead{font-size:.98rem;margin:0 0 6px}
+  .how{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:12px 14px;margin:14px 0;box-shadow:4px 4px 0 var(--ink);font-size:.95rem}
+  .how b{color:#b3002d}
+  .how ol{margin:8px 0 0;padding-left:22px}
+  .how li{margin-bottom:4px}
+  .card{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:13px;margin-top:16px;box-shadow:5px 5px 0 var(--ink)}
+  .card h2{margin:0 0 2px;font-size:1.12rem}
+  .meta{font-size:.9rem;opacity:.75;margin:0 0 10px}
+  video{display:block;width:100%;height:auto;background:#000;border-radius:10px}
+  /* big, finger friendly buttons */
+  a.btn{display:block;text-align:center;font-weight:bold;text-decoration:none;color:var(--ink);
+        background:var(--sun);border:3px solid var(--ink);border-radius:14px;
+        padding:16px 14px;margin-top:10px;font-size:1.05rem;box-shadow:0 4px 0 var(--ink);min-height:56px}
+  a.btn.p{background:var(--pop);color:#fff}
+  a.btn.ghost{background:#fff}
+  a.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+  .small{font-size:.88rem;opacity:.8;margin-top:8px}
+  .note{border-left:6px solid var(--mint);background:#f3fffb;padding:10px 12px;border-radius:8px;font-size:.92rem;margin-top:14px}
+  .ask{background:#fff;border:3px dashed var(--ink);border-radius:14px;padding:12px 14px;margin-top:22px;font-size:.95rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>🎬 Cartoon episodes</h1>
+  <p class="lead">Original slapstick cartoons (apne characters, Tom &amp; Jerry style comedy).</p>
+
+  <section class="how">
+    <b>iPhone Safari me video save karne ka tarika (2 tap):</b>
+    <ol>
+      <li>Neeche <b>▶ Episode kholo</b> dabao — video poore screen par chalega.</li>
+      <li>Upar <b>Share</b> (□↑) dabao → <b>Save to Files</b> ya <b>Download</b> → Files app me chali jayegi.
+          Wahan se Photos/VLC me kholo, ya seedha <b>WhatsApp</b> par share kar do.</li>
+    </ol>
+    Tips: long-press (dabaye rakho) video par → “Download Linked File” bhi kaam karta hai.
+  </section>
+
+  <div class="card">
+    <h2>Episode 1 — Chiku vs Bantu</h2>
+    <p class="meta">Jungle • bandar vs bhalu • 1 min 11 sec • music + sound effects</p>
+    <video id="v1" controls playsinline webkit-playsinline preload="metadata" poster="poster-chiku.png">
+      <source src="web/chiku-vs-bantu-iphone.mp4" type="video/mp4">
+      <source src="web/chiku-vs-bantu-phone.mp4" type="video/mp4">
+    </video>
+    <a class="btn p" href="web/chiku-vs-bantu-iphone.mp4" target="_blank" rel="noopener">▶ Episode kholo (2.2 MB, 360p)</a>
+    <a class="btn" href="web/chiku-vs-bantu-phone.mp4" target="_blank" rel="noopener">▶ Better quality (4.6 MB, 480p)</a>
+    <a class="btn ghost" href="chiku-vs-bantu.mp4" target="_blank" rel="noopener">▶ Full HD 720p (12.3 MB)</a>
+    <p class="small">Video khulne ke baad Share → Save to Files se download karo.</p>
+  </div>
+
+  <div class="card">
+    <h2>Episode 2 — Bruno vs Sheru</h2>
+    <p class="meta">Street • kutta vs badi billee • 54 sec • music + sound effects</p>
+    <video id="v2" controls playsinline webkit-playsinline preload="metadata">
+      <source src="web/bruno-vs-sheru-iphone.mp4" type="video/mp4">
+      <source src="web/bruno-vs-sheru-phone.mp4" type="video/mp4">
+    </video>
+    <a class="btn p" href="web/bruno-vs-sheru-iphone.mp4" target="_blank" rel="noopener">▶ Episode kholo (1.9 MB, 360p)</a>
+    <a class="btn" href="web/bruno-vs-sheru-phone.mp4" target="_blank" rel="noopener">▶ Better quality (4.2 MB, 480p)</a>
+    <a class="btn ghost" href="bruno-vs-sheru.mp4" target="_blank" rel="noopener">▶ Full HD 720p (10.3 MB)</a>
+  </div>
+
+  <p class="note">Videos chal rahi hain par download nahi ho rahi? Seedha link copy karo:
+    <span style="word-break:break-all"><code>…/episodes/web/chiku-vs-bantu-iphone.mp4</code></span>
+    (is page ka URL le kar last me <code>web/chiku-vs-bantu-iphone.mp4</code> laga do) — Safari usko akele khol kar play karega,
+    phir Share → Save to Files.</p>
+
+  <div class="ask">
+    <b>Apni video banani hai?</b> Studio kholo: <a href="../index.html">index.html</a> → story type karo → “Make my cartoon” →
+    “⬇ Save video (MP4)”. iPhone par save hone ke baad Photos me aa jayegi (Share → Save Video).
+    <br>Agli episode chahiye? Bas naam + story bata do — main render kar dunga.
+  </div>
+</main>
+<script>
+  // iOS: make sure the inline players use the small files and can go fullscreen
+  document.querySelectorAll('video').forEach(v => {
+    v.addEventListener('error', () => {
+      const s = v.querySelector('source');
+      if (s && !/iphone/.test(s.src)) { s.src = s.src.replace(/\.mp4$/, '-iphone.mp4'); v.load(); }
+    });
+  });
+</script>
+</body>
+</html>

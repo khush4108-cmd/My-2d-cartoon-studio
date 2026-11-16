@@ -1,0 +1,27 @@
+// ANIMATION GLOSSARY: studio ke words, simple Hinglish me. App ke "Studio words" panel se.
+window.Glossary = [
+  ['Script', 'Kahani likhi hui form me: kaun bolta hai, kya bolta hai, kya karta hai.'],
+  ['Storyboard', 'Chhote chhote sketches jo batate hain kaunsi scene kis order me aayegi.'],
+  ['Layout / Composition', 'Frame me kaun kahan khada hoga, camera kya dekhega.'],
+  ['Rig', 'Character ke andar ka "dhancha" — haath, pair, sir alag-alag ghum sakte hain.'],
+  ['Pose', 'Ek frame me character ka shape (haath upar, sir jhuka, etc.).'],
+  ['Keyframe', 'Sabse important pose. Beech ke frames (in-betweens) baad me bante hain.'],
+  ['In-between', 'Do keyframes ke beech ke frames, jisse movement smooth lagti hai.'],
+  ['Timing', 'Kis pose ko kitna time dena hai. Comedy timing hi asli jaadu hai.'],
+  ['Squash & stretch', 'Jump par body lambi, landing par dabi — jaan daalne wala rule.'],
+  ['Anticipation', 'Bade action se pehle chhota sa ulta movement (peeche jhukna).'],
+  ['Follow-through', 'Action rukne ke baad baal/kapde thoda aur hilte hain.'],
+  ['Cycle', 'Ek hi movement baar-baar dohrana — walk cycle, run cycle.'],
+  ['Lip-sync', 'Muh ka dialogue ke saath hilna (yahan auto lip-flap hota hai).'],
+  ['Cel / Layers', 'Purane studio me har drawing transparent sheet (cel) par banti thi. Aaj layers hain: BG, character, props, UI.'],
+  ['Background (BG)', 'Peeche ka scene. Is app me har frame par naya banta hai, isliye clouds chalte hain.'],
+  ['Prop', 'Character ke haath ka saamaan — pie, hammer, bomb, bone.'],
+  ['SFX', 'Sound effect — CRASH, BOING, WHOOSH (screen par likhe aate hain).'],
+  ['Foley', 'Roz ke sounds jo alag se record hote hain (kadam, darwaza).'],
+  ['Rough cut / Edit', 'Saari scenes jodkar final timing banana.'],
+  ['Render', 'Har frame ko final picture me badalna.'],
+  ['Export / Encode', 'Video file (MP4/WebM) banana.'],
+  ['FPS', 'Frames per second. Cartoon me 24 ya 30 FPS.'],
+  ['Camera shake', 'Dhamake par camera hilna — dhamaal ka feel.'],
+  ['Iris wipe', 'Scene change par gol circle band/khulna (classic cartoon).']
+];
