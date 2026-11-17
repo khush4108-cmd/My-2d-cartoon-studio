@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07152d">
+  <title>Shivji — 2D Cartoon Short</title>
+  <link rel="stylesheet" href="css/shivji-short.css?v=2">
+</head>
+<body>
+  <main class="short-studio">
+    <header class="hero">
+      <a class="back" href="index.html" aria-label="Back to studio">←</a>
+      <div>
+        <p class="eyebrow">MY 2D CARTOON STUDIO</p>
+        <h1>Shivji Animated Short</h1>
+        <p class="intro">60-second vertical cartoon video — ready for YouTube Shorts audio.</p>
+      </div>
+    </header>
+
+    <section class="workspace" aria-label="Shivji animation preview">
+      <div class="phone-shell">
+        <div class="phone-top"><span></span></div>
+        <canvas id="shivCanvas" width="1080" height="1920" aria-label="Animated Shivji devotional short"></canvas>
+        <div class="timecode"><span id="currentTime">00:00</span><span>00:60</span></div>
+      </div>
+
+      <aside class="panel">
+        <div class="badges" aria-label="Video details">
+          <span>9:16 Vertical</span><span>60 sec</span><span>2D Cartoon</span>
+        </div>
+
+        <div class="now-playing">
+          <span class="pulse" aria-hidden="true"></span>
+          <div><small>NOW PLAYING</small><strong id="sceneName">Kailash ki subah</strong></div>
+        </div>
+
+        <div class="progress" aria-label="Animation progress"><span id="progressBar"></span></div>
+
+        <div class="controls">
+          <button id="playButton" class="primary" type="button"><span id="playIcon">▶</span> <span id="playLabel">Play animation</span></button>
+          <button id="restartButton" class="secondary" type="button">↻ Restart</button>
+        </div>
+
+        <button id="downloadButton" class="download" type="button">↓ Download 60s video</button>
+        <p id="exportStatus" class="status" role="status"></p>
+
+        <div class="audio-note">
+          <div class="music-icon">♫</div>
+          <div>
+            <strong>Song kaise lagana hai?</strong>
+            <p>Video download karke YouTube Shorts mein upload karein, phir <b>Add sound</b> se “SHIVJI SATYA HAI — Sonu Nigam” select karein.</p>
+          </div>
+        </div>
+
+        <div class="scene-list">
+          <h2>Animated scenes</h2>
+          <ol>
+            <li><span>00–12s</span>Kailash, moving clouds & meditation</li>
+            <li><span>12–26s</span>Breathing, blinking & divine Ganga</li>
+            <li><span>26–42s</span>Damru, energy rings & Tandav</li>
+            <li><span>42–54s</span>Temple, bells, diyas & blessing</li>
+            <li><span>54–60s</span>Har Har Mahadev end card</li>
+          </ol>
+        </div>
+      </aside>
+    </section>
+
+    <p class="copyright-note">The export is intentionally silent. Add the licensed song inside YouTube Shorts so its music permissions are handled by YouTube.</p>
+  </main>
+  <script src="js/shivji-short.js?v=1"></script>
+</body>
+</html>
