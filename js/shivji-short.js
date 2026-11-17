@@ -225,56 +225,64 @@
   function drawShivaFace(ctx, y, scale, time, opts) {
     const closed = opts.closed;
     ctx.save(); ctx.translate(0, y); ctx.scale(scale, scale);
-    const sway = wave(time, 1.1) * (opts.dynamic ? 5 : 1.4);
+    const sway = wave(time, 1.25) * (opts.dynamic ? 8 : 2);
 
-    // Flowing hair behind the head.
-    ctx.strokeStyle = COLORS.ink; ctx.lineCap = 'round';
-    for (let i = 0; i < (opts.dynamic ? 8 : 5); i++) {
+    // Separate flowing locks keep the silhouette elegant instead of forming a dark blob.
+    ctx.lineCap = 'round';
+    const lockCount = opts.dynamic ? 7 : 5;
+    for (let i = 0; i < lockCount; i++) {
       const side = opts.dynamic ? 1 : (i % 2 ? -1 : 1);
-      ctx.lineWidth = 14 - i * .6; ctx.beginPath(); ctx.moveTo(side * (32 + i * 3), -28 + i * 7);
-      ctx.bezierCurveTo(side * (72 + i * 8), -15 + sway, side * (88 + i * 12), 22 + wave(time, 1.8, i) * 8, side * (105 + i * 9), 45 + i * 5); ctx.stroke();
+      const sx = side * (29 + i * 3), sy = -27 + i * 8;
+      const ex = side * (88 + i * 11), ey = 32 + i * 7 + wave(time, 2.1, i) * 10;
+      ctx.strokeStyle = '#081424'; ctx.lineWidth = 10 - i * .5; ctx.beginPath(); ctx.moveTo(sx, sy);
+      ctx.bezierCurveTo(side * (57 + i * 7), -18 + sway, side * (72 + i * 9), 15 + wave(time, 1.8, i) * 9, ex, ey); ctx.stroke();
+      ctx.strokeStyle = '#34445b'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(sx, sy);
+      ctx.bezierCurveTo(side * (57 + i * 7), -18 + sway, side * (72 + i * 9), 15 + wave(time, 1.8, i) * 9, ex, ey); ctx.stroke();
     }
 
-    // Ears and face.
-    ctx.fillStyle = COLORS.blue; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 5;
-    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 54, 0, 12, 18, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
-    ctx.beginPath(); ctx.ellipse(0, -8, 55, 70, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Softly shaded face and ears.
+    const face = ctx.createLinearGradient(-55, -55, 50, 45); face.addColorStop(0, '#92d7f5'); face.addColorStop(.55, '#65b3e0'); face.addColorStop(1, '#448ab9');
+    ctx.fillStyle = face; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 5;
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 52, 0, 11, 18, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(0, -76); ctx.bezierCurveTo(39, -75, 55, -48, 53, -4); ctx.bezierCurveTo(51, 42, 27, 63, 0, 68); ctx.bezierCurveTo(-27, 63, -51, 42, -53, -4); ctx.bezierCurveTo(-55, -48, -39, -75, 0, -76); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.ellipse(-19, 8, 19, 34, -.25, 0, Math.PI * 2); ctx.fill();
 
-    // Hair cap and bun.
-    ctx.fillStyle = COLORS.hair;
-    ctx.beginPath(); ctx.arc(0, -36, 53, Math.PI, Math.PI * 2); ctx.lineTo(50, -20); ctx.bezierCurveTo(28, -46, 7, -45, -9, -29); ctx.bezierCurveTo(-25, -44, -39, -39, -51, -20); ctx.closePath(); ctx.fill(); ctx.stroke();
-    circle(ctx, 0, -86, 30, COLORS.hair); circle(ctx, 0, -108, 19, COLORS.hair);
-    ctx.strokeStyle = '#835b3b'; ctx.lineWidth = 3;
-    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.arc(0, -90 + k * 7, 24 - Math.abs(k) * 2, .1, Math.PI - .1); ctx.stroke(); }
+    // Sculpted jata crown and bun.
+    ctx.fillStyle = COLORS.hair; ctx.strokeStyle = COLORS.ink;
+    ctx.beginPath(); ctx.arc(0, -39, 52, Math.PI, Math.PI * 2); ctx.lineTo(49, -20); ctx.bezierCurveTo(31, -46, 9, -49, -8, -31); ctx.bezierCurveTo(-25, -47, -40, -40, -50, -19); ctx.closePath(); ctx.fill(); ctx.stroke();
+    circle(ctx, 0, -88, 29, COLORS.hair); circle(ctx, 0, -109, 18, COLORS.hair);
+    ctx.strokeStyle = '#9a6944'; ctx.lineWidth = 2.5;
+    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.arc(0, -91 + k * 7, 23 - Math.abs(k) * 2, .12, Math.PI - .12); ctx.stroke(); }
+    circle(ctx, 0, -82, 5, '#b86b3f');
 
-    // Crescent moon.
-    ctx.fillStyle = '#fff4c9'; circle(ctx, -20, -111, 14); circle(ctx, -14, -116, 12, COLORS.hair);
+    // Crescent moon and animated Ganga.
+    circle(ctx, -20, -112, 14, '#fff1b9'); circle(ctx, -14, -117, 12, COLORS.hair);
+    ctx.strokeStyle = '#c8f7ff'; ctx.lineWidth = 5; ctx.globalAlpha = .95;
+    ctx.beginPath(); ctx.moveTo(10, -124); ctx.bezierCurveTo(27 + wave(time, 2) * 3, -100, 10, -82, 29 + wave(time, 2, 2) * 4, -60); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(13, -121); ctx.bezierCurveTo(25, -100, 14, -82, 27, -64); ctx.stroke(); ctx.globalAlpha = 1;
 
-    // Animated Ganga stream.
-    ctx.strokeStyle = '#bff5ff'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.globalAlpha = .92;
-    ctx.beginPath(); ctx.moveTo(10, -122); ctx.bezierCurveTo(24 + wave(time, 2) * 3, -99, 13, -81, 28 + wave(time, 2, 2) * 3, -61); ctx.stroke(); ctx.globalAlpha = 1;
-
-    // Vibhuti and third eye.
-    ctx.strokeStyle = '#f7f2e6'; ctx.lineWidth = 4;
+    // Vibhuti, third eye and expressive brows.
+    ctx.strokeStyle = '#fff8e8'; ctx.lineWidth = 3.5;
     for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(-18, -35 + k * 7); ctx.quadraticCurveTo(0, -38 + k * 7, 18, -35 + k * 7); ctx.stroke(); }
-    ctx.fillStyle = '#a83d3b'; ctx.beginPath(); ctx.ellipse(0, -28, 3, 7, 0, 0, Math.PI * 2); ctx.fill();
-
-    // Eyes blink/open in the blessing scenes.
+    ctx.fillStyle = '#a53f3a'; ctx.beginPath(); ctx.ellipse(0, -28, 3.3, 7.5, 0, 0, Math.PI * 2); ctx.fill();
     const blink = !closed && ((time * .42) % 1 > .92);
-    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 3.4;
     for (const side of [-1, 1]) {
-      if (closed || blink) { ctx.beginPath(); ctx.arc(side * 20, -6, 11, .12, Math.PI - .12); ctx.stroke(); }
+      if (closed || blink) { ctx.beginPath(); ctx.moveTo(side * 8, -5); ctx.quadraticCurveTo(side * 20, 3, side * 33, -5); ctx.stroke(); }
       else {
-        ctx.fillStyle = '#f6fbff'; ctx.beginPath(); ctx.ellipse(side * 20, -6, 12, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        circle(ctx, side * 20, -5, 4.5, '#204c72'); circle(ctx, side * 20, -5, 2, COLORS.ink);
+        ctx.fillStyle = '#fbfeff'; ctx.beginPath(); ctx.moveTo(side * 8, -5); ctx.quadraticCurveTo(side * 20, -14, side * 34, -5); ctx.quadraticCurveTo(side * 20, 5, side * 8, -5); ctx.fill(); ctx.stroke();
+        circle(ctx, side * 21, -5, 5, '#327cac'); circle(ctx, side * 21, -5, 2.3, COLORS.ink); circle(ctx, side * 19.5, -7, 1.2, '#fff');
       }
-      ctx.beginPath(); ctx.moveTo(side * 8, -19); ctx.quadraticCurveTo(side * 20, -24, side * 33, -18); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(side * 8, -19); ctx.quadraticCurveTo(side * 21, -25, side * 35, -18); ctx.stroke();
     }
-    ctx.beginPath(); ctx.moveTo(-15, 28); ctx.quadraticCurveTo(0, 38, 15, 28); ctx.stroke();
+    // Nose and calm smile.
+    ctx.strokeStyle = '#2b668e'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-2, 1); ctx.quadraticCurveTo(-5, 14, 1, 17); ctx.quadraticCurveTo(6, 17, 8, 14); ctx.stroke();
+    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-16, 29); ctx.quadraticCurveTo(0, 41, 17, 28); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,183,188,.65)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-12, 31); ctx.quadraticCurveTo(0, 36, 12, 30); ctx.stroke();
 
-    // Earrings.
-    ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 5;
-    for (const side of [-1, 1]) { ctx.beginPath(); ctx.arc(side * 57, 17, 10, -.4, Math.PI + .4); ctx.stroke(); }
+    // Refined gold kundal earrings.
+    ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 4.5;
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.arc(side * 56, 16, 10, -.45, Math.PI + .45); ctx.stroke(); circle(ctx, side * 57, 26, 3, '#ffdc7a'); }
     ctx.restore();
   }
 
@@ -309,8 +317,12 @@
     ctx.save(); ctx.scale(1, breathe); ctx.rotate(wave(time, .85) * .008);
     const bodyGrad = ctx.createLinearGradient(-60, -280, 60, -100); bodyGrad.addColorStop(0, '#83caf0'); bodyGrad.addColorStop(1, '#4f99cb');
     ctx.fillStyle = bodyGrad; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(-43, -235); ctx.quadraticCurveTo(-67, -201, -62, -130); ctx.quadraticCurveTo(0, -108, 62, -130); ctx.quadraticCurveTo(67, -201, 43, -235); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-25, -126); ctx.bezierCurveTo(-51, -130, -56, -158, -57, -184); ctx.bezierCurveTo(-61, -213, -67, -226, -44, -240); ctx.bezierCurveTo(-22, -251, -11, -242, 0, -238); ctx.bezierCurveTo(11, -242, 22, -251, 44, -240); ctx.bezierCurveTo(67, -226, 61, -213, 57, -184); ctx.bezierCurveTo(56, -158, 51, -130, 25, -126); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(39,105,145,.65)'; ctx.lineWidth = 2.3; ctx.beginPath(); ctx.moveTo(-38, -207); ctx.quadraticCurveTo(-18, -219, -2, -205); ctx.moveTo(38, -207); ctx.quadraticCurveTo(18, -219, 2, -205); ctx.moveTo(0, -202); ctx.lineTo(0, -145); ctx.stroke();
     drawTigerCloth(ctx, false);
+    const eyesClosed = raise < .38 && (!closeUp || time % 8 < 5.8);
+    drawShivaFace(ctx, -294, 1, time, { closed: eyesClosed, dynamic: raise > .45 });
+    drawNecklace(ctx, -220, time); drawSnake(ctx, -236, time);
 
     // Left hand remains in mudra while the right hand rises into a blessing.
     const handBob = wave(time, 1.65) * 2;
@@ -331,68 +343,85 @@
       for (let i = 0; i < 7; i++) { const a = i * Math.PI / 3.5; ctx.beginPath(); ctx.moveTo(handX + Math.cos(a) * 22, handY + Math.sin(a) * 22); ctx.lineTo(handX + Math.cos(a) * (31 + wave(time, 3, i) * 3), handY + Math.sin(a) * (31 + wave(time, 3, i) * 3)); ctx.stroke(); }
       ctx.restore();
     }
-    drawNecklace(ctx, -220, time); drawSnake(ctx, -236, time);
-    const eyesClosed = raise < .38 && (!closeUp || time % 8 < 5.8);
-    drawShivaFace(ctx, -294, 1, time, { closed: eyesClosed, dynamic: raise > .45 });
     ctx.restore(); ctx.restore();
   }
 
   function drawStandingShiva(ctx, x, baseY, scale, time, blessing) {
-    const tempo = blessing ? 1.7 : 3.7;
-    const beat = Math.sin(time * tempo);
-    const kick = Math.sin(time * tempo * .5);
-    const bounce = blessing ? Math.abs(beat) * 2 : Math.abs(beat) * 13;
-    ctx.save(); ctx.translate(x, baseY - bounce); ctx.scale(scale, scale);
-    ctx.rotate(blessing ? beat * .018 : beat * .065);
-    drawAura(0, -265, 190 + Math.abs(beat) * 7, time, true);
+    const tempo = blessing ? 1.35 : 2.85;
+    const phase = time * tempo, beat = Math.sin(phase), halfBeat = Math.sin(phase * .5);
+    ctx.save(); ctx.translate(x, baseY); ctx.scale(scale, scale);
 
-    // A real alternating foot cycle makes the Tandav feel frame-by-frame animated.
-    if (blessing) {
-      const step = wave(time, 1.7) * 3;
-      drawLimb(ctx, -21, -113, -26 - step, -10, 27, COLORS.blue);
-      drawLimb(ctx, 21, -113, 30 + step, -10, 27, COLORS.blue);
-      ctx.fillStyle = COLORS.blue; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 5;
-      for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 31 + side * step, -3, 28, 12, side * .04, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
-    } else {
-      const liftLeft = Math.max(0, -kick) * 76, liftRight = Math.max(0, kick) * 76;
-      const leftX = -25 - liftLeft * .58, rightX = 25 + liftRight * .58;
-      drawLimb(ctx, -20, -118, leftX, -7 - liftLeft, 28, COLORS.blue);
-      drawLimb(ctx, 20, -118, rightX, -7 - liftRight, 28, COLORS.blue);
-      ctx.fillStyle = COLORS.blue; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.ellipse(leftX - 3, -2 - liftLeft, 29, 12, liftLeft ? .2 : 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(rightX + 3, -2 - liftRight, 29, 12, liftRight ? -.2 : 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      // Dust and divine energy burst beneath every landing foot.
-      ctx.save(); ctx.globalAlpha = .35 + .35 * Math.abs(kick); ctx.strokeStyle = COLORS.cyan; ctx.lineWidth = 2;
-      for (let i = 0; i < 8; i++) { const a = Math.PI + i * Math.PI / 7; ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(Math.cos(a) * (48 + i * 3), -3 + Math.sin(a) * 18); ctx.stroke(); }
+    // A contact shadow and landing rings keep the character firmly on the ground.
+    ctx.fillStyle = 'rgba(0,5,17,.42)'; ctx.beginPath(); ctx.ellipse(0, 4, blessing ? 72 : 91, 15, 0, 0, Math.PI * 2); ctx.fill();
+    if (!blessing) {
+      ctx.save(); ctx.globalAlpha = .22 + Math.abs(beat) * .22; ctx.strokeStyle = COLORS.cyan; ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(0, 1, 48 + i * 28 + Math.abs(beat) * 13, 8 + i * 5, 0, 0, Math.PI * 2); ctx.stroke(); }
       ctx.restore();
     }
+    drawAura(0, -276, 194 + Math.abs(beat) * 5, time, true);
 
-    const bodyGrad = ctx.createLinearGradient(-70, -390, 70, -135); bodyGrad.addColorStop(0, '#82caf0'); bodyGrad.addColorStop(1, '#4c93c8');
+    // Two-joint legs alternate naturally: one foot is always planted at y=0.
+    for (const side of [-1, 1]) {
+      const lift = blessing ? 0 : Math.max(0, Math.sin(phase + (side > 0 ? 0 : Math.PI)));
+      const hipX = side * 22, hipY = -180;
+      const footX = side * (29 + lift * 45), footY = -7 - lift * 72;
+      const kneeX = lerp(hipX, footX, .52) + side * (18 + lift * 8);
+      const kneeY = lerp(hipY, footY, .52) + 15 - lift * 8;
+      drawLimb(ctx, hipX, hipY, kneeX, kneeY, 30, COLORS.blue);
+      drawLimb(ctx, kneeX, kneeY, footX, footY, 26, COLORS.blue);
+      circle(ctx, kneeX, kneeY, 15, COLORS.blue); ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 4; ctx.stroke();
+      const footGrad = ctx.createLinearGradient(footX - 25, footY, footX + 25, footY); footGrad.addColorStop(0, '#62aeda'); footGrad.addColorStop(1, '#91d6f3');
+      ctx.fillStyle = footGrad; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.ellipse(footX + side * 7, footY + 3, 31, 13, side * lift * -.18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#377aa5'; ctx.lineWidth = 1.5; for (let toe = 0; toe < 3; toe++) { ctx.beginPath(); ctx.moveTo(footX + side * (15 + toe * 4), footY - 2); ctx.lineTo(footX + side * (17 + toe * 4), footY + 5); ctx.stroke(); }
+    }
+
+    // Upper body sways from the hips while the planted foot remains fixed.
+    const upperSway = blessing ? beat * .018 : beat * .045;
+    const upperBob = blessing ? wave(time, 1.35) * 2 : -Math.abs(beat) * 6;
+    ctx.save(); ctx.translate(0, -180 + upperBob); ctx.rotate(upperSway); ctx.translate(0, 180);
+
+    // Face and flowing hair are laid down first so both arms remain clearly visible.
+    drawShivaFace(ctx, -432, 1.03, time, { closed: !blessing && Math.sin(time * 1.1) < -.78, dynamic: !blessing });
+
+    // Neck joins the head to a sculpted shoulder/chest silhouette.
+    const bodyGrad = ctx.createLinearGradient(-70, -375, 70, -175); bodyGrad.addColorStop(0, '#93d8f5'); bodyGrad.addColorStop(.55, '#67b7e2'); bodyGrad.addColorStop(1, '#4389b8');
     ctx.fillStyle = bodyGrad; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(-48, -344); ctx.quadraticCurveTo(-75, -292, -60, -202); ctx.lineTo(-52, -191); ctx.quadraticCurveTo(0, -173, 52, -191); ctx.lineTo(60, -202); ctx.quadraticCurveTo(75, -292, 48, -344); ctx.closePath(); ctx.fill(); ctx.stroke();
-    drawTigerCloth(ctx, true); drawNecklace(ctx, -324, time); drawSnake(ctx, -343, time);
+    ctx.beginPath(); ctx.moveTo(-19, -370); ctx.lineTo(-21, -337); ctx.lineTo(21, -337); ctx.lineTo(19, -370); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-22, -194); ctx.bezierCurveTo(-49, -198, -55, -224, -57, -262); ctx.bezierCurveTo(-59, -291, -77, -314, -49, -344); ctx.bezierCurveTo(-28, -358, -13, -350, 0, -347); ctx.bezierCurveTo(13, -350, 28, -358, 49, -344); ctx.bezierCurveTo(77, -314, 59, -291, 57, -262); ctx.bezierCurveTo(55, -224, 49, -198, 22, -194); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Chest and abdomen definition.
+    ctx.strokeStyle = 'rgba(39,105,145,.72)'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(-43, -307); ctx.quadraticCurveTo(-20, -319, -2, -304); ctx.moveTo(43, -307); ctx.quadraticCurveTo(20, -319, 2, -304); ctx.moveTo(0, -300); ctx.lineTo(0, -218); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -216, 4, 0, Math.PI * 2); ctx.stroke();
+    // Sacred ash marks on both upper arms/chest.
+    ctx.strokeStyle = 'rgba(250,248,238,.9)'; ctx.lineWidth = 3;
+    for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(-45, -288 + k * 7); ctx.lineTo(-25, -286 + k * 7); ctx.moveTo(45, -288 + k * 7); ctx.lineTo(25, -286 + k * 7); ctx.stroke(); }
+    drawTigerCloth(ctx, true); drawNecklace(ctx, -327, time); drawSnake(ctx, -346, time);
 
-    // Two-segment arms swing through wide arcs; the damru visibly shakes on every beat.
-    const leftElbowX = blessing ? -82 : -74 - beat * 20;
-    const leftElbowY = blessing ? -292 : -272 + kick * 25;
-    const leftHandX = blessing ? -111 + wave(time, 1.7) * 5 : -120 - beat * 31;
-    const leftHandY = blessing ? -254 + wave(time, 1.7) * 8 : -215 + kick * 55;
-    const rightElbowX = blessing ? 79 : 76 + beat * 19;
-    const rightElbowY = blessing ? -352 : -338 - kick * 23;
-    const rightHandX = blessing ? 110 : 124 + beat * 28;
-    const rightHandY = blessing ? -395 + wave(time, 1.7) * 5 : -392 - kick * 46;
-    drawLimb(ctx, -47, -318, leftElbowX, leftElbowY, 22, COLORS.blue);
-    drawLimb(ctx, leftElbowX, leftElbowY, leftHandX, leftHandY, 21, COLORS.blue);
-    drawLimb(ctx, 47, -318, rightElbowX, rightElbowY, 22, COLORS.blue);
-    drawLimb(ctx, rightElbowX, rightElbowY, rightHandX, rightHandY, 21, COLORS.blue);
-    ctx.fillStyle = COLORS.blue; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 4;
-    circle(ctx, leftHandX, leftHandY, 16, COLORS.blue); ctx.stroke();
-    circle(ctx, rightHandX, rightHandY, 16, COLORS.blue); ctx.stroke();
-    ctx.strokeStyle = '#2d668f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(leftHandX, leftHandY, 8, .2, 2.8); ctx.stroke();
-    drawDamru(ctx, rightHandX + 4, rightHandY - 16, .64, -.25 + beat * .25, time * (blessing ? 1 : 1.8));
+    // Connected shoulder-elbow-wrist chains create a clear two-arm silhouette.
+    let leftHandX, leftHandY, rightHandX, rightHandY, leftElbowX, leftElbowY, rightElbowX, rightElbowY;
+    if (blessing) {
+      leftElbowX = -83; leftElbowY = -305; leftHandX = -112 + wave(time, 1.35) * 4; leftHandY = -267 + wave(time, 1.35) * 5;
+      rightElbowX = 79; rightElbowY = -354; rightHandX = 108; rightHandY = -402 + wave(time, 1.35) * 4;
+    } else {
+      leftElbowX = -81 - beat * 15; leftElbowY = -288 + halfBeat * 23; leftHandX = -132 - beat * 22; leftHandY = -240 + halfBeat * 58;
+      rightElbowX = 81 + beat * 15; rightElbowY = -346 - halfBeat * 22; rightHandX = 133 + beat * 23; rightHandY = -397 - halfBeat * 45;
+    }
+    drawLimb(ctx, -49, -326, leftElbowX, leftElbowY, 23, COLORS.blue); circle(ctx, leftElbowX, leftElbowY, 12, COLORS.blue); ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 4; ctx.stroke();
+    drawLimb(ctx, leftElbowX, leftElbowY, leftHandX, leftHandY, 20, COLORS.blue);
+    drawLimb(ctx, 49, -326, rightElbowX, rightElbowY, 23, COLORS.blue); circle(ctx, rightElbowX, rightElbowY, 12, COLORS.blue); ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 4; ctx.stroke();
+    drawLimb(ctx, rightElbowX, rightElbowY, rightHandX, rightHandY, 20, COLORS.blue);
 
-    drawShivaFace(ctx, -419, 1, time, { closed: !blessing && Math.sin(time * 1.2) < -.65, dynamic: !blessing });
-    ctx.restore();
+    // Open palms and fingers make the hands readable even on a phone screen.
+    for (const hand of [[leftHandX, leftHandY, -1], [rightHandX, rightHandY, 1]]) {
+      const [hx, hy, side] = hand; ctx.save(); ctx.translate(hx, hy); ctx.rotate(side * (blessing ? .08 : beat * .18));
+      const palm = ctx.createLinearGradient(-14, -15, 14, 15); palm.addColorStop(0, '#95d9f4'); palm.addColorStop(1, '#55a0ce');
+      ctx.fillStyle = palm; ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(0, 0, 16, 19, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#2f739e'; ctx.lineWidth = 1.6; for (let f = -1; f <= 1; f++) { ctx.beginPath(); ctx.moveTo(f * 5, -8); ctx.lineTo(f * 6, 7); ctx.stroke(); }
+      ctx.restore();
+    }
+    drawDamru(ctx, rightHandX + 7, rightHandY - 19, .64, -.22 + beat * .28, time * (blessing ? 1 : 1.65));
+    ctx.restore(); ctx.restore();
   }
 
   function drawCaptionPill(text, y, alpha) {
